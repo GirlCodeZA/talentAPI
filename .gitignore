@@ -1,0 +1,108 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environment
+venv/
+env/
+
+# Python egg files
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Testing files
+.pytest_cache/
+htmlcov/
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+.pyre/
+
+# Pyre type checker
+.pyre/
+
+# pyright type checker
+.pyright/
+
+# pipenv and poetry files
+Pipfile
+Pipfile.lock
+poetry.lock
+
+# Pyre type checker
+.pyre/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Firebase key
+serviceAccountKey.json
+
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# macOS files
+.DS_Store
+
+# VS Code settings
+.vscode/
+
+# Idea files for IntelliJ-based IDEs
+.idea/
+
+# Log files
+*.log
+
+# Compiled static files (optional)
+staticfiles/
+static/
+
+# Local pytest cache directory
+.pytest_cache/
+
+# dotenv file
+.env.local
+.env.*.local
+
+# Pyre
+.pyre/
+
+# Ignore Python virtual environment and dependencies
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Ignore compiled C extensions
+*.so
+
+# Ignore local .env files
+*.env*
+
+# Ignore test-related artifacts
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+.cache/
+.cache.test
