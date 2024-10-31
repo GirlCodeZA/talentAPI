@@ -1,7 +1,5 @@
-# Talent Back End Project
-
-## Project Overview
-A brief description of the project and its purpose.
+# Talent API
+Talent is a job marketplace for women developers, connecting them with new opportunities to grow their careers.
 
 ## Prerequisites
 - **Python** (version 3.x)
