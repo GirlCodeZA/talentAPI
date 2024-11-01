@@ -11,17 +11,6 @@ class SignUpSchema(BaseModel):
     password: str
     email: str
 
-    class Config:
-        # pylint: disable=too-few-public-methods
-        """
-        Configuration for the example schema shown in documentation.
-        """
-        schema_extra = {
-            "example": {
-                "password": "password",
-                "email": "test@gmail.com"
-            }
-        }
 
 class LoginSchema(BaseModel):
     """
@@ -29,15 +18,3 @@ class LoginSchema(BaseModel):
     """
     email: str
     password: str
-
-    class Config:
-        # pylint: disable=too-few-public-methods
-        """
-        Configuration for the example schema shown in documentation.
-        """
-        schema_extra = {
-            "example": {
-                "password": "password",
-                "email": "test@gmail.com"
-            }
-        }
