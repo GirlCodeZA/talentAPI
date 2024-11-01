@@ -4,7 +4,9 @@ Routes for user authentication, including sign-up, login, and token validation.
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
-from app.firebase import firebase, auth
+from app.firebase import firebase
+from firebase_admin import auth
+
 from app.models import LoginSchema, SignUpSchema
 
 router = APIRouter()
