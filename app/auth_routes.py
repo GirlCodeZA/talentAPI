@@ -2,7 +2,7 @@
 Routes for user authentication, including sign-up, login, and token validation.
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Body
 from fastapi.responses import JSONResponse
 from firebase_admin import auth
 from app.firebase import firebase
@@ -11,7 +11,10 @@ from app.models import LoginSchema, SignUpSchema
 router = APIRouter()
 
 @router.post("/signup")
-async def create_an_account(user_data: SignUpSchema):
+async def create_an_account(user_data: SignUpSchema =Body(..., example={
+    "email": "user@example.com",
+    "password": "your_password"
+})):
     """
     Creates a new user account with the provided email and password.
     """
@@ -29,7 +32,10 @@ async def create_an_account(user_data: SignUpSchema):
 
 
 @router.post("/login")
-async def login(user_data: LoginSchema):
+async def login(user_data: LoginSchema = Body(..., example={
+    "email": "user@example.com",
+    "password": "your_password"
+})):
     """
     Authenticates a user and returns a token upon successful login.
     """
