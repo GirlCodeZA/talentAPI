@@ -1,4 +1,6 @@
-# app/config.py
+"""
+Configuration file for Firebase settings.
+"""
 
 firebase_config = {
     "apiKey": "AIzaSyDzQy9RklkGFuoVCnJnA51P5wbHxJZpGKs",

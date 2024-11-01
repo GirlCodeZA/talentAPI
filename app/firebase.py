@@ -1,16 +1,23 @@
-# app/firebase.py
+"""
+Initializes Firebase and Firebase Admin SDK for use in the application.
+"""
 
 import pyrebase
-import firebase_admin
-from firebase_admin import credentials, auth, initialize_app
+from firebase_admin import credentials, initialize_app
 from app.config import firebase_config
 
 firebase = pyrebase.initialize_app(firebase_config)
 
 # Initialize Firebase Admin SDK
 def init_firebase():
-    if not firebase_admin._apps:  # Corrected check for initialized apps
+    """
+    Initializes Firebase Admin SDK if it hasn't been initialized already.
+    """
+    try:
         cred = credentials.Certificate("serviceAccountKey.json")
         initialize_app(cred)
+    except ValueError:
+        # Firebase Admin is already initialized
+        pass
 
 init_firebase()

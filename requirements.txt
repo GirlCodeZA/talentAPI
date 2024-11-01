@@ -3,3 +3,4 @@ uvicorn
 firebase-admin
 pyrebase4
 requests
+pylint
