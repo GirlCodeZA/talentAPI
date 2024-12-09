@@ -6,3 +6,4 @@ requests
 pylint
 awsebcli
 gunicorn
+fastapi-cors

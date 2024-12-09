@@ -3,6 +3,17 @@ Defines Pydantic models for user authentication requests.
 """
 
 from pydantic import BaseModel
+from enum import Enum
+
+class ProfileStatus(Enum):
+    ACTIVE = "active"
+    DEACTIVATED = "deactivated"
+    DELETED = "deleted"
+    PENDING = "pending"
+    SUSPENDED = "suspended"
+    INCOMPLETE = "incomplete"
+    VERIFIED = "verified"
+    ARCHIVED = "archived"
 
 class SignUpSchema(BaseModel):
     """
@@ -10,6 +21,9 @@ class SignUpSchema(BaseModel):
     """
     password: str
     email: str
+    name: str
+    lastName: str
+    status: ProfileStatus
 
 
 class LoginSchema(BaseModel):
@@ -18,3 +32,6 @@ class LoginSchema(BaseModel):
     """
     email: str
     password: str
+
+
+
