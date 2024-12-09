@@ -16,8 +16,8 @@ Talent is a job marketplace for women developers, connecting them with new oppor
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd <project-name>
+git clone git@github.com:GirlCodeZA/talentAPI.git
+cd talentBackEnd
 ```
 ### Using Autamted Script
 ```bash
