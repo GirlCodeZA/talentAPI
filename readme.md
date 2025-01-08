@@ -79,3 +79,8 @@ docker run -d -p 8000:8000 talent-backend
 # Run tests (if any are available in run.py)
 python run.py
 ```
+
+### database
+go to firebase console https://console.firebase.google.com/project/talent-dd7dd/overview
+- Firebase Database : that has collections
+- Authentication : users credentials
