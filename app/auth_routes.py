@@ -39,8 +39,8 @@ async def create_an_account(
 
         # Step 3: Default progress steps
         progress_steps_default = {
-            "Personal Information": {"done": False, "percentage": 0},
-            "Qualifications": {"done": False, "percentage": 0},
+            "Basic Information": {"done": False, "percentage": 0},
+            "Education": {"done": False, "percentage": 0},
             "Work Experience": {"done": False, "percentage": 0},
             "Job Preference": {"done": False, "percentage": 0},
             "Skills": {"done": False, "percentage": 0},
