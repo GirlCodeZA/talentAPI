@@ -4,6 +4,8 @@ Defines Pydantic models for user authentication requests.
 
 from pydantic import BaseModel
 from enum import Enum
+from typing import Optional, Dict
+
 
 class ProfileStatus(Enum):
     ACTIVE = "active"
@@ -23,7 +25,7 @@ class SignUpSchema(BaseModel):
     email: str
     name: str
     lastName: str
-    status: ProfileStatus
+    status: Optional[str] = "PENDING"
 
 
 class LoginSchema(BaseModel):
@@ -32,6 +34,14 @@ class LoginSchema(BaseModel):
     """
     email: str
     password: str
+
+class ProgressStep(BaseModel):
+    done: bool
+    percentage: int
+
+# Define the main model for progress steps as a dictionary
+class ProgressModel(BaseModel):
+    steps: Dict[str, ProgressStep]
 
 
 

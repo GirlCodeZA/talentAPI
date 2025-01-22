@@ -7,3 +7,5 @@ pylint
 awsebcli
 gunicorn
 fastapi-cors
+python-multipart
+boto3
