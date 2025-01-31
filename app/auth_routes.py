@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Request, Body, Query, File, Upload
 from fastapi.responses import JSONResponse
 from firebase_admin import auth, firestore, storage
 from app.firebase import firebase
-from app.models import LoginSchema, SignUpSchema, ProfileStatus, ProgressModel, ProgressStep
+from app.models import LoginSchema, SignUpSchema, ProfileStatus, ProgressModel, ProgressStep, BasicInformation
 from app.firebase import db, bucket
 import uuid
 
@@ -57,7 +57,7 @@ async def create_an_account(
             "email": user_data.email,
             "name": user_data.name,
             "lastName": user_data.lastName,
-            "status": "PENDING",  # Use default status if missing
+            "status": "PENDING",  # Use default status for sign up
             "createdAt": created_at,
             "progressSteps": progress_steps_default
         }
@@ -188,6 +188,48 @@ async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example
         raise HTTPException(status_code=500, detail=f"Error fetching candidate: {str(e)}") from e
 
 
+@router.post("/basic-details")
+async def add_basic_details(basic_info: BasicInformation):
+    """
+    Adds basic details of a candidate to the database.
+
+    Args:
+        basic_info (BasicInformation): The basic information of the candidate.
+
+    Returns:
+        JSONResponse: A response indicating the success or failure of the operation.
+    """
+    try:
+        # Step 1: Validate that the candidate exists in Firestore
+        candidate_ref = db.collection("candidate").document(basic_info.id)
+        candidate_doc = candidate_ref.get()
+
+        if not candidate_doc.exists:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        # Step 2: Update Firestore document with basic information
+        candidate_ref.update({
+            "phone": basic_info.phone,
+            "passport": basic_info.passport,
+            "city": basic_info.city,
+            "country": basic_info.country,
+            "role": basic_info.role,
+            "urls": {
+                "linkedIn": basic_info.Urls.linkedIn,
+                "github": basic_info.Urls.github,
+            }
+        })
+
+        return JSONResponse(
+            content={"message": "Basic details added successfully"},
+            status_code=200
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error adding basic details: {str(e)}"
+        ) from e
+
+
 @router.post("/update-picture")
 async def update_picture(
         candidate_id: str = Query(..., example="candidate123"),
@@ -277,3 +319,36 @@ async def save_progress(
         raise HTTPException(
             status_code=500, detail=f"Error updating progress steps: {str(e)}"
         ) from e
+
+
+@router.put("/update-basic-info/{candidate_id}", tags=["Candidate Management"])
+async def update_basic_information(candidate_id: str, basic_info: BasicInformation = Body(...)):
+    """
+    Updates basic information for a candidate in Firestore by candidate ID.
+
+    Args:
+        candidate_id (str): The ID of the candidate document.
+        basic_info (BasicInformation): The object containing updated candidate details.
+
+    Returns:
+        JSONResponse: A response indicating the success or failure of the operation.
+    """
+    try:
+        # Reference to the candidate document
+        candidate_ref = db.collection("candidate").document(candidate_id)
+        if not candidate_ref.get().exists:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        # Update the candidate document
+        candidate_ref.update(basic_info.dict())
+
+        return JSONResponse(
+            content={"message": "Candidate information updated successfully"},
+            status_code=200
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error updating candidate information: {str(e)}"
+        ) from e
+
+
