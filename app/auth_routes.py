@@ -1,18 +1,14 @@
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Request, Body, Query, File, UploadFile, requests
+from fastapi import APIRouter, HTTPException, Request, Body, Query, File, UploadFile,status
 from fastapi.responses import JSONResponse
 from firebase_admin import auth, firestore, storage
-from grpc import Status
 from app.firebase import firebase
 from app.models import LoginSchema, SignUpSchema, ProfileStatus, ProgressModel, ProgressStep, BasicInformation
 from app.firebase import db, bucket
 import uuid
 
 
-
 router = APIRouter()
-
-
 @router.post("/signup")
 async def create_an_account(
         user_data: SignUpSchema = Body(
@@ -81,48 +77,31 @@ async def create_an_account(
 
 
 
+
+
 @router.post("/login")
-async def login(user_data:LoginSchema = Body(...,example={
-    "email":"user@example.com",
-    "password":"your password"
+async def login(user_data: LoginSchema = Body(..., example={
+    "email": "user@example.com",
+    "password": "your_password"
 })):
     """
     Authenticates a user and returns a token upon successful login.
     Args:
-    user_data(LoginSchema): The user data for login.
-
+        user_data (LoginSchema): The user data for login.
     Returns:
-    JSONResonse: A response containing the authentication token.
+        JSONResponse: A response containing the authentication token.
     """
-    email = user_data.email
-    password = user_data.password
 
     LoginSchema.validate_user_data(user_data)
 
     try:
         user = firebase.auth().sign_in_with_email_and_password(
-            email = email,
-            password = password
-        )
-
-        token = user['idToken']
-        return JSONResponse(content={
-            "token":token
-        },status_code=Status.HTTP_200_OK)
-
-    except requests.exceptions.HTTPError as e:
-        error_message = str(e)
-        if "INVALID_LOGIN_CREDENTIALS" in error_message:
-            raise HTTPException(
-                status_code=Status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid login credentials"
-            )
-
+        user_data.email,
+        user_data.password
+    )
+        return JSONResponse(content={"token": user['idToken']}, status_code=200)
     except Exception as e:
-        raise HTTPException(
-            status_code=Status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=400, detail=f"Login failed: {str(e)}") from e
 
 
 @router.post("/ping")

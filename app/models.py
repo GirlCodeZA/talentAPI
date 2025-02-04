@@ -3,8 +3,7 @@ Defines Pydantic models for user authentication requests.
 """
 
 import re
-from fastapi import HTTPException
-from grpc import Status
+from fastapi import HTTPException, status
 from pydantic import BaseModel
 from enum import Enum
 from typing import Optional, Dict
@@ -43,13 +42,13 @@ def validate_user_data(user_data: BaseModel):
 
     if not re.match(pattern, user_data.email):
         raise HTTPException(
-            status_code=Status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid email format"
         )
 
-    if len(user_data.password) < 8:
+    if len(user_data.password) < 7:
         raise HTTPException(
-            status_code=Status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 8 characters long"
         )
     return user_data
