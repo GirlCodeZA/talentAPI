@@ -1,15 +1,13 @@
+import uuid
 from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, Request, Body, Query, File, UploadFile, status
 from fastapi.responses import JSONResponse
-from firebase_admin import auth, firestore, storage
+from firebase_admin import auth
 
-import app.models
-from app import models
-from app.firebase import firebase
-from app.models import LoginSchema, SignUpSchema, ProfileStatus, ProgressModel, ProgressStep, BasicInformation
 from app.firebase import db, bucket
-import uuid
-
+from app.firebase import firebase
+from app.models import LoginSchema, SignUpSchema, ProgressModel, BasicInformation
 
 router = APIRouter()
 
@@ -326,92 +324,3 @@ async def save_progress(
         raise HTTPException(
             status_code=500, detail=f"Error updating progress steps: {str(e)}"
         ) from e
-
-
-# @router.post("/add-basic-info", tags=["Candidate Management"])
-# async def add_basic_information(basic_info: BasicInformation = Body(...)):
-#     """
-#     Adds basic information for a candidate in Firestore.
-#
-#     Args:
-#         basic_info (BasicInformation): The object containing candidate details.
-#
-#     Returns:
-#         JSONResponse: A response indicating the success or failure of the operation.
-#     """
-#     try:
-#         # Reference to the candidate collection
-#         candidates_ref = db.collection("candidate")
-#
-#         # Check if a candidate with the given email already exists
-#         query = candidates_ref.where("email", "==", basic_info.email).stream()
-#         candidate_docs = [doc for doc in query]
-#
-#         if candidate_docs:
-#             raise HTTPException(status_code=400, detail="Candidate with this email already exists")
-#
-#         # Create a new candidate document
-#         new_candidate_ref = candidates_ref.document()
-#         new_candidate_ref.set(basic_info.dict())
-#
-#         return JSONResponse(
-#             content={"message": "Candidate information added successfully"},
-#             status_code=201
-#         )
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=500, detail=f"Error adding candidate information: {str(e)}"
-#         ) from e
-
-
-@router.put("/update-basic-info/{candidate_id}", tags=["Candidate Management"])
-async def update_basic_information(candidate_id: str, basic_info: BasicInformation = Body(...)):
-    """
-    Updates basic information for a candidate in Firestore by candidate ID.
-
-    Args:
-        candidate_id (str): The ID of the candidate document.
-        basic_info (BasicInformation): The object containing updated candidate details.
-
-    Returns:
-        JSONResponse: A response indicating the success or failure of the operation.
-    """
-    try:
-        # Fetch existing candidate data by email to autofill fields
-        existing_candidate_ref = db.collection("candidate").document(candidate_id)
-        existing_candidate = existing_candidate_ref.get()
-
-        print("existing candidate:", existing_candidate)
-        print("here 1.........")
-
-        if not existing_candidate.exists:
-            print("Inside.........")
-            raise HTTPException(status_code=404, detail="Candidate not found")
-
-        print("here .........")
-        existing_data = existing_candidate.to_dict()
-
-        # Debug: Print the candidate reference and actual data
-        print("candidate ref :", existing_candidate_ref)
-        print("candidate data :", existing_data)
-
-        # Auto-fill the fields from existing data
-        basic_info.firstName = basic_info.firstName or existing_data.get("firstName")
-        basic_info.lastName = basic_info.lastName or existing_data.get("lastName")
-        basic_info.email = basic_info.email or existing_data.get("email")
-
-        print(("basic info:", basic_info.firstName))
-        print("existing data", existing_data.get("firstName"))
-
-        # Update the candidate document
-        existing_candidate_ref.update(basic_info.dict())
-
-        return JSONResponse(
-            content={"message": "Candidate information updated successfully"},
-            status_code=200
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error updating candidate information: {str(e)}"
-        ) from e
-
