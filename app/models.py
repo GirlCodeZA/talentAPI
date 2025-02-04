@@ -2,9 +2,11 @@
 Defines Pydantic models for user authentication requests.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from enum import Enum
 from typing import Optional, Dict
+import re
+from fastapi import FastAPI, HTTPException,status
 
 
 class ProfileStatus(Enum):
@@ -34,6 +36,25 @@ class LoginSchema(BaseModel):
     """
     email: str
     password: str
+
+    @staticmethod
+    def validate_user_data(user_data: "LoginSchema"):
+        pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+
+        if not re.match(pattern, user_data.email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid email format"
+            )
+
+        if len(user_data.password) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long"
+            )
+
+        return user_data
+
 
 class ProgressStep(BaseModel):
     done: bool
