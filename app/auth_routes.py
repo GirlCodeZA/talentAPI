@@ -1,13 +1,12 @@
-import uuid
 from datetime import datetime
-
 from fastapi import APIRouter, HTTPException, Request, Body, Query, File, UploadFile, status
 from fastapi.responses import JSONResponse
-from firebase_admin import auth
-
-from app.firebase import db, bucket
+from firebase_admin import auth, firestore, storage
 from app.firebase import firebase
-from app.models import LoginSchema, SignUpSchema, ProgressModel, BasicInformation
+from app.models import LoginSchema, SignUpSchema, ProfileStatus, ProgressModel, ProgressStep, BasicInformation
+from app.firebase import db, bucket
+import uuid
+
 
 router = APIRouter()
 
@@ -77,6 +76,9 @@ async def create_an_account(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+
+
+
 @router.post("/login")
 async def login(user_data: LoginSchema = Body(..., example={
     "email": "user@example.com",
@@ -101,7 +103,6 @@ async def login(user_data: LoginSchema = Body(..., example={
             user_data.password
         )
         return JSONResponse(content={"token": user['idToken']}, status_code=200)
-
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -324,3 +325,36 @@ async def save_progress(
         raise HTTPException(
             status_code=500, detail=f"Error updating progress steps: {str(e)}"
         ) from e
+
+
+@router.put("/update-basic-info/{candidate_id}", tags=["Candidate Management"])
+async def update_basic_information(candidate_id: str, basic_info: BasicInformation = Body(...)):
+    """
+    Updates basic information for a candidate in Firestore by candidate ID.
+
+    Args:
+        candidate_id (str): The ID of the candidate document.
+        basic_info (BasicInformation): The object containing updated candidate details.
+
+    Returns:
+        JSONResponse: A response indicating the success or failure of the operation.
+    """
+    try:
+        # Reference to the candidate document
+        candidate_ref = db.collection("candidate").document(candidate_id)
+        if not candidate_ref.get().exists:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        # Update the candidate document
+        candidate_ref.update(basic_info.dict())
+
+        return JSONResponse(
+            content={"message": "Candidate information updated successfully"},
+            status_code=200
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error updating candidate information: {str(e)}"
+        ) from e
+
+
