@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Request, Body, Query, File, UploadFile
+from fastapi import APIRouter, HTTPException, Request, Body, Query, File, UploadFile,status
 from fastapi.responses import JSONResponse
 from firebase_admin import auth, firestore, storage
 from app.firebase import firebase
@@ -9,8 +9,6 @@ import uuid
 
 
 router = APIRouter()
-
-
 @router.post("/signup")
 async def create_an_account(
         user_data: SignUpSchema = Body(
@@ -79,6 +77,8 @@ async def create_an_account(
 
 
 
+
+
 @router.post("/login")
 async def login(user_data: LoginSchema = Body(..., example={
     "email": "user@example.com",
@@ -86,22 +86,22 @@ async def login(user_data: LoginSchema = Body(..., example={
 })):
     """
     Authenticates a user and returns a token upon successful login.
-
     Args:
         user_data (LoginSchema): The user data for login.
-
     Returns:
         JSONResponse: A response containing the authentication token.
     """
+
+    LoginSchema.validate_user_data(user_data)
+
     try:
-        # Firebase authentication login
         user = firebase.auth().sign_in_with_email_and_password(
-            user_data.email,
-            user_data.password
-        )
+        user_data.email,
+        user_data.password
+    )
         return JSONResponse(content={"token": user['idToken']}, status_code=200)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=400, detail=f"Login failed: {str(e)}") from e
 
 
 @router.post("/ping")
