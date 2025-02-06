@@ -4,7 +4,8 @@ Sets up the FastAPI instance and registers routes.
 """
 
 from fastapi import FastAPI
-from app.auth_routes import router as auth_router
+from app.routes.auth import router as auth_router
+from app.routes.auth import router as candidate_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -37,3 +38,4 @@ app.add_middleware(
 
 # Register routes
 app.include_router(auth_router)
+app.include_router(candidate_router)
