@@ -8,7 +8,7 @@ from app.auth_routes import router as auth_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
-
+# Create FastAPI instance
 app = FastAPI(
     title="Talent FastAPI",
     description="Talent API",
