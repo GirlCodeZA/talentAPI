@@ -37,6 +37,9 @@ class LoginSchema(BaseModel):
     email: str
     password: str
 
+    """
+    Validates the user data for login. Raises an HTTPException if the email or password is invalid.
+    """
     @staticmethod
     def validate_user_data(user_data: BaseModel):
         pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
