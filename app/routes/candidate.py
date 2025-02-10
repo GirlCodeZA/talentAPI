@@ -7,6 +7,11 @@ from app.models import LoginSchema, SignUpSchema, ProfileStatus, ProgressModel, 
 from app.firebase import db, bucket
 import uuid
 
+from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile
+from fastapi.responses import JSONResponse
+
+from app.firebase import db, bucket
+from app.models import ProgressModel, BasicInformation
 
 router = APIRouter()
 @router.post("/signup")
@@ -153,6 +158,8 @@ async def get_candidates():
         raise HTTPException(status_code=500, detail=f"Error fetching candidates: {str(e)}") from e
 
 
+=======
+>>>>>>> e32e21a19244d4b0dceeaa065e1137c52dff1e36:app/routes/candidate.py
 @router.get("/candidate")
 async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example.com")):
     """
