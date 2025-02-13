@@ -2,9 +2,10 @@
 Defines Pydantic models for user authentication requests.
 """
 
+from pkgutil import get_data
 import re
 from fastapi import HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from enum import Enum
 from typing import Optional, Dict
 
@@ -24,11 +25,19 @@ class SignUpSchema(BaseModel):
     Schema for user sign-up requests, containing email and password fields.
     """
     password: str
+    confirm_password: str
     email: str
     name: str
     lastName: str
     status: Optional[str] = "PENDING"
 
+@staticmethod
+def confirm_password_validation(user_data: SignUpSchema):
+    if user_data.password != user_data.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password mismatch")
+    return user_data
 
 class LoginSchema(BaseModel):
     """
@@ -36,7 +45,8 @@ class LoginSchema(BaseModel):
     """
     email: str
     password: str
-    
+
+@staticmethod  
 def validate_user_data(user_data: BaseModel):
     pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
 
@@ -52,26 +62,6 @@ def validate_user_data(user_data: BaseModel):
             detail="Password must be at least 8 characters long"
         )
     return user_data
-
-    """
-    Validates the user data for login. Raises an HTTPException if the email or password is invalid.
-    """
-    @staticmethod
-    def validate_user_data(user_data: BaseModel):
-        pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
-
-        if not re.match(pattern, user_data.email):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid email format"
-            )
-
-        if len(user_data.password) < 7:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be at least 8 characters long"
-            )
-        return user_data
 
 class ProgressStep(BaseModel):
     done: bool
