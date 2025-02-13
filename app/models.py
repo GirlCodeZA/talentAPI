@@ -1,11 +1,9 @@
 """
 Defines Pydantic models for user authentication requests.
 """
-
-from pkgutil import get_data
 import re
 from fastapi import HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from enum import Enum
 from typing import Optional, Dict
 
