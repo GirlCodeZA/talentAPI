@@ -7,6 +7,7 @@ from app.firebase import db, bucket
 from app.models import ProgressModel, BasicInformation
 
 router = APIRouter()
+
 @router.get("/candidate")
 async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example.com")):
     """
@@ -204,5 +205,4 @@ async def update_basic_information(candidate_id: str, basic_info: BasicInformati
         raise HTTPException(
             status_code=500, detail=f"Error updating candidate information: {str(e)}"
         ) from e
-
 

@@ -16,6 +16,7 @@ async def create_an_account(
             example={
                 "email": "user@example.com",
                 "password": "your_password",
+                "confirm_password": "your_password",
                 "name": "John",
                 "lastName": "Doe"
             }
@@ -25,12 +26,26 @@ async def create_an_account(
     Creates a new user account with the provided email and password,
     and stores user data in Firestore with default progress steps.
     """
+    SignUpSchema.validate_user_data(user_data)
+    SignUpSchema.confirm_password(user_data)
     try:
         # Step 1: Create a new user in Firebase Authentication
-        user = auth.create_user(
-            email=user_data.email,
-            password=user_data.password
+        user = auth.create_user(email=user_data.email, password= user_data.password)
+        return JSONResponse(content={
+            "message": f"Account created successfully. User ID: {user.uid}"},
+            status_code=status.HTTP_201_CREATED)
+    except auth.EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Account already exists for email{user_data.email}"
+
         )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 
         # Step 2: Get current timestamp in ISO 8601 format
         created_at = datetime.utcnow().isoformat()
@@ -94,6 +109,7 @@ async def login(user_data: LoginSchema = Body(..., example={
             user_data.email,
             user_data.password
         )
+        token = user['idToken']
         return JSONResponse(content={"token": user['idToken']}, status_code=200)
     except Exception as e:
         raise HTTPException(
