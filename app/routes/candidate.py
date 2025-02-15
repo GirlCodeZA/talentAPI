@@ -6,8 +6,8 @@ from fastapi.responses import JSONResponse
 from app.firebase import db, bucket
 from app.models import ProgressModel, BasicInformation
 
-router = APIRouter()
-@router.get("/candidate")
+candidate_router = APIRouter()
+@candidate_router.get("/candidate")
 async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example.com")):
     """
     Fetch a candidate's data from Firestore by email.
@@ -42,7 +42,7 @@ async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example
         raise HTTPException(status_code=500, detail=f"Error fetching candidate: {str(e)}") from e
 
 
-@router.post("/basic-details")
+@candidate_router.post("/basic-details")
 async def add_basic_details(basic_info: BasicInformation):
     """
     Adds basic details of a candidate to the database.
@@ -84,7 +84,7 @@ async def add_basic_details(basic_info: BasicInformation):
         ) from e
 
 
-@router.post("/update-picture")
+@candidate_router.post("/update-picture")
 async def update_picture(
         candidate_id: str = Query(..., example="candidate123"),
         file: UploadFile = File(...)
@@ -123,7 +123,7 @@ async def update_picture(
         raise HTTPException(status_code=500, detail=f"Error uploading picture: {str(e)}") from e
 
 
-@router.post("/save-progress", tags=["Progress Management"])
+@candidate_router.post("/save-progress", tags=["Progress Management"])
 async def save_progress(
         email: str = Query(..., example="nsovo1@example.com"),
         progress_steps: ProgressModel = Body(..., example={
@@ -175,7 +175,7 @@ async def save_progress(
         ) from e
 
 
-@router.put("/update-basic-info/{candidate_id}", tags=["Candidate Management"])
+@candidate_router.put("/update-basic-info/{candidate_id}", tags=["Candidate Management"])
 async def update_basic_information(candidate_id: str, basic_info: BasicInformation = Body(...)):
     """
     Updates basic information for a candidate in Firestore by candidate ID.
