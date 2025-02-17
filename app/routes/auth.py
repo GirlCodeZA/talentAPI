@@ -26,8 +26,6 @@ async def create_an_account(
     Creates a new user account with the provided email and password,
     and stores user data in Firestore with default progress steps.
     """
-    SignUpSchema.validate_user_data(user_data)
-    SignUpSchema.confirm_password(user_data)
     try:
         # Step 1: Create a new user in Firebase Authentication
         user = auth.create_user(email=user_data.email, password= user_data.password)
@@ -36,9 +34,8 @@ async def create_an_account(
             status_code=status.HTTP_201_CREATED)
     except auth.EmailAlreadyExistsError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Account already exists for email{user_data.email}"
-
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Account already exists for email {user_data.email}"
         )
     except Exception as e:
         raise HTTPException(
@@ -101,8 +98,6 @@ async def login(user_data: LoginSchema = Body(..., example={
     Returns:
         JSONResponse: A response containing the authentication token.
     """
-
-    LoginSchema.validate_user_data(user_data)
 
     try:
         user = firebase.auth().sign_in_with_email_and_password(
