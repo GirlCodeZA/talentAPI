@@ -86,7 +86,8 @@ class BasicInformation(BaseModel):
     city: str
     country: str
     role: str
-    Urls: Urls
+    urls: Optional[Urls] = None
+
 
 class Education(BaseModel):
     """
