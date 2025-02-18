@@ -2,7 +2,8 @@
 Defines Pydantic models for user authentication requests.
 """
 
-from pydantic import BaseModel, Field, EmailStr, field_validator
+import re
+from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo
 from enum import Enum
 from typing import Optional, Dict
 
@@ -39,6 +40,17 @@ class SignUpSchema(BaseModel):
         if password and confirm_password != password:
             raise ValueError("Passwords do not match")
         return confirm_password
+    
+    @field_validator("name" , "lastName")
+    @classmethod
+    def validate_name(cls, value: str, info):
+        #Ensures that the name and last name fields are not empty and only contain alphabetical characters
+        if not value.strip():
+            raise ValueError(f"{info.field_name} cannot be empty")
+        if not re.match(r"^[A-Za-z]+$", value):
+            raise ValueError(f"{info.field_name} must contain only alphabetic characters")
+        return value
+            
 
 
 class LoginSchema(BaseModel):
