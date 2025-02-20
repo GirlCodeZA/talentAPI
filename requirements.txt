@@ -9,3 +9,4 @@ gunicorn
 fastapi-cors
 python-multipart
 boto3
+pydantic[email]

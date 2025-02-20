@@ -16,6 +16,7 @@ async def create_an_account(
             example={
                 "email": "user@example.com",
                 "password": "your_password",
+                "confirm_password": "your_password",
                 "name": "John",
                 "lastName": "Doe"
             }
@@ -27,10 +28,21 @@ async def create_an_account(
     """
     try:
         # Step 1: Create a new user in Firebase Authentication
-        user = auth.create_user(
-            email=user_data.email,
-            password=user_data.password
+        user = auth.create_user(email=user_data.email, password= user_data.password)
+        return JSONResponse(content={
+            "message": f"Account created successfully. User ID: {user.uid}"},
+            status_code=status.HTTP_201_CREATED)
+    except auth.EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Account already exists for email {user_data.email}"
         )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 
         # Step 2: Get current timestamp in ISO 8601 format
         created_at = datetime.utcnow().isoformat()
@@ -87,13 +99,12 @@ async def login(user_data: LoginSchema = Body(..., example={
         JSONResponse: A response containing the authentication token.
     """
 
-    LoginSchema.validate_user_data(user_data)
-
     try:
         user = firebase.auth().sign_in_with_email_and_password(
             user_data.email,
             user_data.password
         )
+        token = user['idToken']
         return JSONResponse(content={"token": user['idToken']}, status_code=200)
     except Exception as e:
         raise HTTPException(

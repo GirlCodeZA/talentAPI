@@ -218,4 +218,3 @@ async def update_basic_information(email: str, basic_info: BasicInformation = Bo
 
 
 
-
