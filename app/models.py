@@ -3,13 +3,13 @@ Defines Pydantic models for user authentication requests.
 """
 
 import re
-from fastapi import HTTPException, status
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo
 from enum import Enum
 from typing import Optional, Dict
 
 
-class ProfileStatus(Enum):
+class ProfileStatus(str, Enum):
     ACTIVE = "active"
     DEACTIVATED = "deactivated"
     DELETED = "deleted"
@@ -19,43 +19,58 @@ class ProfileStatus(Enum):
     VERIFIED = "verified"
     ARCHIVED = "archived"
 
+
 class SignUpSchema(BaseModel):
     """
     Schema for user sign-up requests, containing email and password fields.
     """
-    password: str
-    email: str
+    email: EmailStr
+    password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
+    confirm_password: str
     name: str
     lastName: str
-    status: Optional[str] = "PENDING"
+    status: Optional[ProfileStatus] = ProfileStatus.PENDING
+
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, confirm_password, values):
+        """
+        Ensures password and confirm_password fields match.
+        """
+        password = values.data.get("password")
+        if password and confirm_password != password:
+            raise ValueError("Passwords do not match")
+        return confirm_password
+    
+    @field_validator("name" , "lastName")
+    @classmethod
+    def validate_name(cls, value: str, info):
+        #Ensures that the name and last name fields are not empty and only contain alphabetical characters
+        if not value.strip():
+            raise ValueError(f"{info.field_name} cannot be empty")
+        if not re.match(r"^[A-Za-z]+$", value):
+            raise ValueError(f"{info.field_name} must contain only alphabetic characters")
+        return value
+            
 
 
 class LoginSchema(BaseModel):
     """
-    Schema for user login requests, containing email and password fields.
+    Schema for validating user login data.
     """
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(..., min_length=8, description="Password must be at least 8 characters long")
 
-    """
-    Validates the user data for login. Raises an HTTPException if the email or password is invalid.
-    """
-    @staticmethod
-    def validate_user_data(user_data: BaseModel):
-        pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    @field_validator("password")
+    @classmethod
+    def validate_password_length(cls, password: str) -> str:
+        """
+        Ensures the password meets the required length.
+        """
+        if len(password) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        return password
 
-        if not re.match(pattern, user_data.email):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid email format"
-            )
-
-        if len(user_data.password) < 7:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be at least 8 characters long"
-            )
-        return user_data
 
 class ProgressStep(BaseModel):
     done: bool
@@ -63,7 +78,8 @@ class ProgressStep(BaseModel):
 
 
 class ProgressModel(BaseModel):
-    steps: Dict[str, ProgressStep]
+    steps: Dict[str, ProgressStep] = {}
+
 
 class Urls(BaseModel):
     """
@@ -77,16 +93,16 @@ class BasicInformation(BaseModel):
     """
     Schema for basic information fields.
     """
-    firstName: str # get the first name of the candidate
-    lastName: str # get the last name of the candidate
-    email: str # get the email of the candidate
+    firstName: str
+    lastName: str
+    email: EmailStr
     phone: str
     id: str
     passport: str
     city: str
     country: str
     role: str
-    urls: Optional[Urls] = None
+    urls: Urls
 
 
 class Education(BaseModel):
@@ -100,6 +116,7 @@ class Education(BaseModel):
     city: str
     country: str
 
+
 class WorkExperience(BaseModel):
     """
     Schema for work experience fields.
@@ -111,6 +128,7 @@ class WorkExperience(BaseModel):
     city: str
     country: str
 
+
 class JobPreference(BaseModel):
     """
     Schema for job preference fields.
@@ -120,12 +138,14 @@ class JobPreference(BaseModel):
     type: str
     salary: int
 
+
 class Skills(BaseModel):
     """
     Schema for skills fields.
     """
     skill: str
     proficiency: str
+
 
 class Projects(BaseModel):
     """
@@ -136,6 +156,7 @@ class Projects(BaseModel):
     startYear: int
     endYear: int
 
+
 class Awards(BaseModel):
     """
     Schema for awards fields.
@@ -143,6 +164,7 @@ class Awards(BaseModel):
     award: str
     description: str
     year: int
+
 
 class Profile(BaseModel):
     """
@@ -156,8 +178,4 @@ class Profile(BaseModel):
     projects: Projects
     awards: Awards
     status: ProfileStatus
-    progress: ProgressModel
-
-
-
-
+    progress: ProgressModel = ProgressModel()
