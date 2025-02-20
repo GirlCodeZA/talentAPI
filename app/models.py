@@ -3,6 +3,7 @@ Defines Pydantic models for user authentication requests.
 """
 
 import re
+
 from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo
 from enum import Enum
 from typing import Optional, Dict
