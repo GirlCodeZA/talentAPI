@@ -6,7 +6,7 @@ from firebase_admin import auth
 
 from app.firebase import db
 from app.firebase import firebase
-from app.models import LoginSchema, SignUpSchema
+from app.models import BasicInformation, LoginSchema, SignUpSchema
 
 router = APIRouter()
 @router.post("/signup")
@@ -132,5 +132,45 @@ async def validate_token(request: Request):
         return {"user_id": user["user_id"]}
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+@router.post("/basic-information")
+async def add_basic_information(
+    request: Request,
+    user_data: BasicInformation = Body(...)
+):
+    """
+    Allows users to add their Basic Information after signing up.
+    Updates their profile in Firestore.
+    """
+    jwt = request.headers.get("authorization")
+    if not jwt:
+        raise HTTPException(status_code=401, detail="Authorization header missing")
+
+    try:
+        # Verify the user token to get UID
+        user = auth.verify_id_token(jwt)
+        user_id = user["user_id"]
+
+        # Get reference to user's document in Firestore
+        user_ref = db.collection("candidate").document(user_id)
+
+        # Check if user exists
+        user_doc = user_ref.get()
+        if not user_doc.exists:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Update the user's profile with Basic Information
+        user_ref.update({
+            "basicInformation": user_data.model_dump(),  # Convert Pydantic model to dictionary
+            "progressSteps.Basic Information": {"done": True, "percentage": 100}
+        })
+
+        return JSONResponse(
+            content={"message": "Basic Information updated successfully"},
+            status_code=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 
