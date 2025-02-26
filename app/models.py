@@ -100,9 +100,11 @@ class BasicInformation(BaseModel):
     passport: str
     city: str
     country: str
-    role: str
+    currentRole: str
+    role: list  #Allow us to add multiple roles
+    category: list #Allow us to add multiple roles
+    description: list 
     urls: Urls
-
 
 class Education(BaseModel):
     """

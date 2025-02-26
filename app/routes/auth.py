@@ -132,15 +132,16 @@ async def validate_token(request: Request):
         return {"user_id": user["user_id"]}
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
 @router.post("/basic-information")
 async def add_basic_information(
     request: Request,
     user_data: BasicInformation = Body(...)
 ):
-    """
-    Allows users to add their Basic Information after signing up.
-    Updates their profile in Firestore.
-    """
+    
+    #Allows users to add their Basic Information after signing up.
+    #Updates their profile in Firestore.
+
     jwt = request.headers.get("authorization")
     if not jwt:
         raise HTTPException(status_code=401, detail="Authorization header missing")
@@ -171,6 +172,8 @@ async def add_basic_information(
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
 
 
 
