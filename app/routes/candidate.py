@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile
+from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 
 from app.firebase import db, bucket
@@ -175,33 +175,46 @@ async def save_progress(
         ) from e
 
 
-@candidate_router.put("/update-basic-info/{candidate_id}", tags=["Candidate Management"])
-async def update_basic_information(candidate_id: str, basic_info: BasicInformation = Body(...)):
+@candidate_router.get("/list-candidates", tags=["Candidate Management"])
+async def list_candidates():
+    candidates = db.collection("candidate").stream()
+    return [{"id": doc.id, **doc.to_dict()} for doc in candidates]
+
+
+@candidate_router.put("/update-basic-info/{email}", tags=["Candidate Management"])
+async def update_basic_information(email: str, basic_info: BasicInformation = Body(...)):
     """
-    Updates basic information for a candidate in Firestore by candidate ID.
-
-    Args:
-        candidate_id (str): The ID of the candidate document.
-        basic_info (BasicInformation): The object containing updated candidate details.
-
-    Returns:
-        JSONResponse: A response indicating the success or failure of the operation.
+    Updates basic information for a candidate in Firestore by email.
     """
     try:
-        # Reference to the candidate document
-        candidate_ref = db.collection("candidate").document(candidate_id)
-        if not candidate_ref.get().exists:
-            raise HTTPException(status_code=404, detail="Candidate not found")
+        # Query Firestore for a document with the given email
+        candidates_ref = db.collection("candidate").where("email", "==", email).stream()
 
-        # Update the candidate document
+        candidate_doc = None
+        candidate_id = None
+
+        for doc in candidates_ref:
+            candidate_doc = doc.to_dict()
+            candidate_id = doc.id  # Get the Firestore document ID
+            break  # Stop after finding the first match
+
+        if not candidate_doc:
+            print(f"Candidate with email {email} not found in Firestore.")  # Debugging
+            raise HTTPException(status_code=404, detail=f"Candidate with email {email} not found")
+
+        print(f"Found candidate: {candidate_doc}")  # Debugging
+
+        # Reference the correct document and update it
+        candidate_ref = db.collection("candidate").document(candidate_id)
         candidate_ref.update(basic_info.dict())
 
-        return JSONResponse(
-            content={"message": "Candidate information updated successfully"},
-            status_code=200
-        )
+        return JSONResponse(content={"message": "Candidate information updated successfully"}, status_code=200)
+
+    except HTTPException as he:
+        raise he  # Rethrow HTTPException to maintain the original error message
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error updating candidate information: {str(e)}"
-        ) from e
+        raise HTTPException(status_code=500, detail=f"Error updating candidate information: {str(e)}")
+
+
+
 
