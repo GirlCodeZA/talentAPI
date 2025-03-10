@@ -19,11 +19,9 @@ async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example
         JSONResponse: A response containing the candidate's data.
     """
     try:
-        # Query Firestore for a candidate with the provided email
         candidates_ref = db.collection("candidate")
         query = candidates_ref.where("email", "==", email).stream()
 
-        # Extract the candidate data
         candidates = []
         for doc in query:
             doc_data = doc.to_dict()
@@ -32,7 +30,6 @@ async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example
                 **doc_data  # All other fields
             })
 
-        # Check if candidate exists
         if not candidates:
             raise HTTPException(status_code=404, detail="Candidate not found")
 
@@ -54,14 +51,12 @@ async def add_basic_details(basic_info: BasicInformation):
         JSONResponse: A response indicating the success or failure of the operation.
     """
     try:
-        # Step 1: Validate that the candidate exists in Firestore
         candidate_ref = db.collection("candidate").document(basic_info.id)
         candidate_doc = candidate_ref.get()
 
         if not candidate_doc.exists:
             raise HTTPException(status_code=404, detail="Candidate not found")
 
-        # Step 2: Update Firestore document with basic information
         candidate_ref.update({
             "phone": basic_info.phone,
             "passport": basic_info.passport,
@@ -187,7 +182,6 @@ async def update_basic_information(email: str, basic_info: BasicInformation = Bo
     Updates basic information for a candidate in Firestore by email.
     """
     try:
-        # Query Firestore for a document with the given email
         candidates_ref = db.collection("candidate").where("email", "==", email).stream()
 
         candidate_doc = None
@@ -202,16 +196,19 @@ async def update_basic_information(email: str, basic_info: BasicInformation = Bo
             print(f"Candidate with email {email} not found in Firestore.")  # Debugging
             raise HTTPException(status_code=404, detail=f"Candidate with email {email} not found")
 
-        print(f"Found candidate: {candidate_doc}")  # Debugging
+        print(f"Found candidate: {candidate_doc}")
 
-        # Reference the correct document and update it
+        # TODO: Look for a way that this can be done better!
+        # Ensure the email field matches the URL parameter
+        basic_info.email = email  # Auto-fill email from URL
+
         candidate_ref = db.collection("candidate").document(candidate_id)
         candidate_ref.update(basic_info.dict())
 
         return JSONResponse(content={"message": "Candidate information updated successfully"}, status_code=200)
 
     except HTTPException as he:
-        raise he  # Rethrow HTTPException to maintain the original error message
+        raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating candidate information: {str(e)}")
 

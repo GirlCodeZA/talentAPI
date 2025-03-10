@@ -4,9 +4,10 @@ Defines Pydantic models for user authentication requests.
 
 import re
 
-from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo
+from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo, StringConstraints, validator
 from enum import Enum
-from typing import Optional, Dict
+from typing import Optional, Dict, Annotated
+
 
 
 class ProfileStatus(str, Enum):
@@ -96,12 +97,14 @@ class BasicInformation(BaseModel):
     firstName: str
     lastName: str
     email: EmailStr
-    phone: str
-    id: str
-    passport: str
-    city: str
+    phone: Annotated[str, StringConstraints(pattern=r"^\+[1-9]\d{1,14}$")]
     country: str
-    role: str
+    city: str
+    description: Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=500)]
+    id: Annotated[str, StringConstraints(pattern=r"^\d{13}$")]
+    passport: str
+    currentRole: str
+    category: str
     urls: Urls
 
 
