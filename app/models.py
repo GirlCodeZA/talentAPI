@@ -109,8 +109,8 @@ class Education(BaseModel):
     """
     Schema for education fields.
     """
-    degree: str
     institution: str
+    degree: str
     startYear: int
     endYear: int
     city: str

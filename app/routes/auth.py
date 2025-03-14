@@ -27,7 +27,6 @@ async def create_an_account(
     and stores user data in Firestore with default progress steps.
     """
     try:
-        # Step 1: Create a new user in Firebase Authentication
         user = auth.create_user(email=user_data.email, password= user_data.password)
         return JSONResponse(content={
             "message": f"Account created successfully. User ID: {user.uid}"},
@@ -44,10 +43,8 @@ async def create_an_account(
         )
 
 
-        # Step 2: Get current timestamp in ISO 8601 format
         created_at = datetime.utcnow().isoformat()
 
-        # Step 3: Default progress steps
         progress_steps_default = {
             "Basic Information": {"done": False, "percentage": 0},
             "Education": {"done": False, "percentage": 0},
@@ -58,10 +55,6 @@ async def create_an_account(
             "Awards": {"done": False, "percentage": 0}
         }
 
-        # Debug log for progress steps
-        print("Default progress steps:", progress_steps_default)
-
-        # Step 4: Save the user data and progress steps in Firestore
         user_ref = db.collection("candidate").document(user.uid)
         user_data_to_store = {
             "email": user_data.email,
@@ -71,9 +64,6 @@ async def create_an_account(
             "createdAt": created_at,
             "progressSteps": progress_steps_default
         }
-
-        # Debug log for final user data
-        print("User data to store:", user_data_to_store)
 
         user_ref.set(user_data_to_store)
 
