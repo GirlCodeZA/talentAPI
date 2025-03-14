@@ -4,9 +4,10 @@ Defines Pydantic models for user authentication requests.
 
 import re
 
-from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo
+from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo, StringConstraints, model_validator, root_validator, validator
 from enum import Enum
-from typing import Optional, Dict
+from typing import Optional, Dict, Annotated
+
 
 
 class ProfileStatus(str, Enum):
@@ -85,7 +86,8 @@ class Urls(BaseModel):
     """
     Schema for URLs fields.
     """
-    linkedIn: str
+    #To Do: Add validations for GitHub & LinkedIn
+    linkedIn: str 
     github: str
 
 
@@ -96,14 +98,34 @@ class BasicInformation(BaseModel):
     firstName: str
     lastName: str
     email: EmailStr
-    phone: str
-    id: str
-    passport: str
-    city: str
+    phone: Annotated[str, StringConstraints(pattern=r"^\+[1-9]\d{1,14}$")]
     country: str
-    role: str
+    city: str
+    description: Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=500)]
+    id: Annotated[str, StringConstraints(pattern=r"^\d{13}$")]
+    passport: str
+    currentRole: str
+    category: str
     urls: Urls
 
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        """Validates phone numbers following the E.164 format."""
+        if not re.match(r"^\+[1-9]\d{1,14}$", value):
+            raise ValueError("Invalid phone number format. Must be in E.164 format(e.g, +267673811767.")
+        return value
+    
+    @field_validator ("passport")
+    @classmethod
+    def validate_passport(cls, value: str) -> str:
+        """ Validates passport numbers (common length: 6-9 Alphanumeric characters)."""
+        if not re.match(r"^[A-Za-z0-9]{6,9}$", value):
+            raise ValueError("Invalid passport number. It must be 6-9 alphanumeric characters.")
+        return value
+    
+
+ 
 
 class Education(BaseModel):
     """

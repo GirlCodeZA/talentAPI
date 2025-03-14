@@ -182,7 +182,6 @@ async def update_basic_information(email: str, basic_info: BasicInformation = Bo
     Updates basic information for a candidate in Firestore by email.
     """
     try:
-        # Query Firestore for a document with the given email
         candidates_ref = db.collection("candidate").where("email", "==", email).stream()
 
         candidate_doc = None
@@ -197,16 +196,19 @@ async def update_basic_information(email: str, basic_info: BasicInformation = Bo
             print(f"Candidate with email {email} not found in Firestore.")  # Debugging
             raise HTTPException(status_code=404, detail=f"Candidate with email {email} not found")
 
-        print(f"Found candidate: {candidate_doc}")  # Debugging
+        print(f"Found candidate: {candidate_doc}")
 
-        # Reference the correct document and update it
+        # TODO: Look for a way that this can be done better!
+        # Ensure the email field matches the URL parameter
+        basic_info.email = email  # Auto-fill email from URL
+
         candidate_ref = db.collection("candidate").document(candidate_id)
         candidate_ref.update(basic_info.dict())
 
         return JSONResponse(content={"message": "Candidate information updated successfully"}, status_code=200)
 
     except HTTPException as he:
-        raise he  # Rethrow HTTPException to maintain the original error message
+        raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating candidate information: {str(e)}")
 
