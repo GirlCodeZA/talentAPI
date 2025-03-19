@@ -16,8 +16,7 @@ async def create_an_account(
             example={
                 "email": "user@example.com",
                 "password": "your_password",
-                "confirm_password": "your_password",
-                "name": "John",
+                "firstName": "John",
                 "lastName": "Doe"
             }
         )
@@ -27,27 +26,12 @@ async def create_an_account(
     and stores user data in Firestore with default progress steps.
     """
     try:
-        # Step 1: Create a new user in Firebase Authentication
-        user = auth.create_user(email=user_data.email, password= user_data.password)
-        return JSONResponse(content={
-            "message": f"Account created successfully. User ID: {user.uid}"},
-            status_code=status.HTTP_201_CREATED)
-    except auth.EmailAlreadyExistsError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Account already exists for email {user_data.email}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        # Create User in Firebase Authentication
+        user = auth.create_user(email=user_data.email, password=user_data.password)
 
-
-        # Step 2: Get current timestamp in ISO 8601 format
+        # Prepare Firestore Data
         created_at = datetime.utcnow().isoformat()
 
-        # Step 3: Default progress steps
         progress_steps_default = {
             "Basic Information": {"done": False, "percentage": 0},
             "Education": {"done": False, "percentage": 0},
@@ -58,32 +42,38 @@ async def create_an_account(
             "Awards": {"done": False, "percentage": 0}
         }
 
-        # Debug log for progress steps
-        print("Default progress steps:", progress_steps_default)
-
-        # Step 4: Save the user data and progress steps in Firestore
-        user_ref = db.collection("candidate").document(user.uid)
         user_data_to_store = {
+            "uid": user.uid,
             "email": user_data.email,
-            "name": user_data.name,
+            "firstName": user_data.firstName,
             "lastName": user_data.lastName,
-            "status": "PENDING",  # Use default status for sign up
+            "status": "PENDING",
             "createdAt": created_at,
             "progressSteps": progress_steps_default
         }
 
-        # Debug log for final user data
-        print("User data to store:", user_data_to_store)
-
+        # Save User in Firestore "candidate" Collection
+        user_ref = db.collection("candidate").document(user.uid)
         user_ref.set(user_data_to_store)
 
         return JSONResponse(
-            content={"message": f"User account created successfully for user {user.uid}"},
-            status_code=201
+            content={
+                "message": f"Account created successfully. User ID: {user.uid}"
+            },
+            status_code=status.HTTP_201_CREATED
+        )
+
+    except auth.EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists. Please log in or use a different email."
         )
     except Exception as e:
-        print("Error during signup:", str(e))  # Log the error for debugging
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        print("Error during signup:", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating account: {str(e)}"
+        )
 
 
 @router.post("/login")

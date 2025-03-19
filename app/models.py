@@ -27,26 +27,13 @@ class SignUpSchema(BaseModel):
     """
     email: EmailStr
     password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
-    confirm_password: str
-    name: str
+    firstName: str
     lastName: str
     status: Optional[ProfileStatus] = ProfileStatus.PENDING
 
-    @field_validator("confirm_password")
-    @classmethod
-    def passwords_match(cls, confirm_password, values):
-        """
-        Ensures password and confirm_password fields match.
-        """
-        password = values.data.get("password")
-        if password and confirm_password != password:
-            raise ValueError("Passwords do not match")
-        return confirm_password
-    
-    @field_validator("name" , "lastName")
+    @field_validator("firstName", "lastName")
     @classmethod
     def validate_name(cls, value: str, info):
-        #Ensures that the name and last name fields are not empty and only contain alphabetical characters
         if not value.strip():
             raise ValueError(f"{info.field_name} cannot be empty")
         if not re.match(r"^[A-Za-z]+$", value):
@@ -98,13 +85,18 @@ class BasicInformation(BaseModel):
     firstName: str
     lastName: str
     email: EmailStr
-    phone: Annotated[str, StringConstraints(pattern=r"^\+[1-9]\d{1,14}$")]
+    phone: str
+    description: str
+    idNo: str
+    passport:  Optional[str] = None
+    city: Optional[str] = None
     country: str
     city: str
     description: Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=500)]
     id:Optional[Annotated[str, StringConstraints(pattern=r"^\d{13}$")]] = None  #Made optional 
     passport: Optional [str] = None
-    currentRole: str
+    currentRole: Optional[str] = None
+    category: Optional[str] = None
     category: str
     urls: Urls
 
@@ -130,32 +122,13 @@ class Education(BaseModel):
     """
     Schema for education fields.
     """
-
-    degree: str = Field(..., min_length=2, description="Degree title must have atleast 2 characters.")
-    institution: str = Field(..., min_length=2, description="Institution name must have at least 2 characters.")
-   # id: str #Candidate  ID field 
-    startYear: int
-    endYear: int 
-    city: str = Field(..., min_length=2, description="City name must be at least 2 characters.")
-    country: str = Field(..., min_length=2, description="Country name must be at least 2 characters.")
-
-    @field_validator("endYear")
-    @classmethod
-    def validate_year_order(cls, end_year: int, values):
-        """This ensure that end year is not before start year"""
-        start_year = values.data.get("startYear")
-        if start_year and end_year < start_year:
-            raise ValueError ("endYear cannot be before startYear.")
-        return end_year
-    
-    @field_validator("institution" , "city" , "country")
-    @classmethod
-    def validate_text_fields(cls, value:str, info: ValidationInfo):
-        """Ensures that the institution, city and country only contain alphabetic characters"""
-        if not re.match(r"^[A-Za-z\s]+$", value):
-            raise ValueError(f"{info.field_name}must contain only alphabetic haracters.")
-        return value
-
+    institution: str
+    degree: str
+    course: str
+    startDate: str
+    endDate: str
+    description: str
+    fileUrl: Optional[str] = None
 
 
 class WorkExperience(BaseModel):
