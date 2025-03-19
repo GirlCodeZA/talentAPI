@@ -4,7 +4,7 @@ Defines Pydantic models for user authentication requests.
 
 import re
 
-from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo, StringConstraints, model_validator, root_validator, validator
+from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo, StringConstraints
 from enum import Enum
 from typing import Optional, Dict, Annotated
 
@@ -102,8 +102,8 @@ class BasicInformation(BaseModel):
     country: str
     city: str
     description: Annotated[str, StringConstraints(strip_whitespace=True, min_length=10, max_length=500)]
-    id: Annotated[str, StringConstraints(pattern=r"^\d{13}$")]
-    passport: str
+    id:Optional[Annotated[str, StringConstraints(pattern=r"^\d{13}$")]] = None  #Made optional 
+    passport: Optional [str] = None
     currentRole: str
     category: str
     urls: Urls
@@ -123,20 +123,39 @@ class BasicInformation(BaseModel):
         if not re.match(r"^[A-Za-z0-9]{6,9}$", value):
             raise ValueError("Invalid passport number. It must be 6-9 alphanumeric characters.")
         return value
-    
 
- 
+
 
 class Education(BaseModel):
     """
     Schema for education fields.
     """
-    degree: str
-    institution: str
+
+    degree: str = Field(..., min_length=2, description="Degree title must have atleast 2 characters.")
+    institution: str = Field(..., min_length=2, description="Institution name must have at least 2 characters.")
+   # id: str #Candidate  ID field 
     startYear: int
-    endYear: int
-    city: str
-    country: str
+    endYear: int 
+    city: str = Field(..., min_length=2, description="City name must be at least 2 characters.")
+    country: str = Field(..., min_length=2, description="Country name must be at least 2 characters.")
+
+    @field_validator("endYear")
+    @classmethod
+    def validate_year_order(cls, end_year: int, values):
+        """This ensure that end year is not before start year"""
+        start_year = values.data.get("startYear")
+        if start_year and end_year < start_year:
+            raise ValueError ("endYear cannot be before startYear.")
+        return end_year
+    
+    @field_validator("institution" , "city" , "country")
+    @classmethod
+    def validate_text_fields(cls, value:str, info: ValidationInfo):
+        """Ensures that the institution, city and country only contain alphabetic characters"""
+        if not re.match(r"^[A-Za-z\s]+$", value):
+            raise ValueError(f"{info.field_name}must contain only alphabetic haracters.")
+        return value
+
 
 
 class WorkExperience(BaseModel):

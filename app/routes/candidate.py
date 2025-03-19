@@ -7,6 +7,7 @@ from app.firebase import db, bucket
 from app.models import ProgressModel, BasicInformation
 
 candidate_router = APIRouter()
+
 @candidate_router.get("/candidate")
 async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example.com")):
     """
