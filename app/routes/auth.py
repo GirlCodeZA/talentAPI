@@ -6,7 +6,7 @@ from firebase_admin import auth
 
 from app.firebase import db
 from app.firebase import firebase
-from app.models import LoginSchema, SignUpSchema
+from app.models import Education, LoginSchema, SignUpSchema
 
 router = APIRouter()
 @router.post("/signup")

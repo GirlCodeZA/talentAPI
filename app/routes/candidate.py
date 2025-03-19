@@ -10,6 +10,7 @@ from app.models import ProgressModel, BasicInformation, Education
 
 candidate_router = APIRouter()
 
+
 @candidate_router.get("/candidate")
 async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example.com")):
     """
