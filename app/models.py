@@ -26,26 +26,13 @@ class SignUpSchema(BaseModel):
     """
     email: EmailStr
     password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
-    confirm_password: str
-    name: str
+    firstName: str
     lastName: str
     status: Optional[ProfileStatus] = ProfileStatus.PENDING
 
-    @field_validator("confirm_password")
-    @classmethod
-    def passwords_match(cls, confirm_password, values):
-        """
-        Ensures password and confirm_password fields match.
-        """
-        password = values.data.get("password")
-        if password and confirm_password != password:
-            raise ValueError("Passwords do not match")
-        return confirm_password
-    
-    @field_validator("name" , "lastName")
+    @field_validator("firstName", "lastName")
     @classmethod
     def validate_name(cls, value: str, info):
-        #Ensures that the name and last name fields are not empty and only contain alphabetical characters
         if not value.strip():
             raise ValueError(f"{info.field_name} cannot be empty")
         if not re.match(r"^[A-Za-z]+$", value):
@@ -97,11 +84,13 @@ class BasicInformation(BaseModel):
     lastName: str
     email: EmailStr
     phone: str
-    id: str
-    passport: str
-    city: str
+    description: str
+    idNo: str
+    passport:  Optional[str] = None
+    city: Optional[str] = None
     country: str
-    role: str
+    role: Optional[str] = None
+    category: Optional[str] = None
     urls: Urls
 
 
@@ -111,10 +100,11 @@ class Education(BaseModel):
     """
     institution: str
     degree: str
-    startYear: int
-    endYear: int
-    city: str
-    country: str
+    course: str
+    startDate: str
+    endDate: str
+    description: str
+    fileUrl: Optional[str] = None
 
 
 class WorkExperience(BaseModel):
