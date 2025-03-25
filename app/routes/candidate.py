@@ -1,12 +1,11 @@
 import uuid
+from typing import List
 
 from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 
-from typing import List
-
 from app.firebase import db, bucket
-from app.models import ProgressModel, BasicInformation, Education
+from app.models import BasicInformation, Education, JobPreference
 
 candidate_router = APIRouter()
 
@@ -39,17 +38,15 @@ async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example
         for doc in query:
             doc_data = doc.to_dict()
 
-            # Get progressSteps and sort it
             progress_steps_data = doc_data.get("progressSteps", {})
             sorted_progress_steps = {
                 step: progress_steps_data[step] for step in correct_order if step in progress_steps_data
             }
 
-            # Update the candidate's data with sorted progressSteps
             candidates.append({
-                "id": doc.id,  # Document ID
-                **doc_data,  # All other fields
-                "progressSteps": sorted_progress_steps  # Sorted progressSteps
+                "id": doc.id,
+                **doc_data,
+                "progressSteps": sorted_progress_steps
             })
 
         if not candidates:
@@ -59,46 +56,6 @@ async def get_candidate_by_email(email: str = Query(..., example="nsovo1@example
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching candidate: {str(e)}") from e
-
-
-# @candidate_router.post("/add-basic-details")
-# async def add_basic_details(basic_info: BasicInformation):
-#     """
-#     Adds basic details of a candidate to the database.
-#
-#     Args:
-#         basic_info (BasicInformation): The basic information of the candidate.
-#
-#     Returns:
-#         JSONResponse: A response indicating the success or failure of the operation.
-#     """
-#     try:
-#         candidate_ref = db.collection("candidate").document(basic_info.id)
-#         candidate_doc = candidate_ref.get()
-#
-#         if not candidate_doc.exists:
-#             raise HTTPException(status_code=404, detail="Candidate not found")
-#
-#         candidate_ref.update({
-#             "phone": basic_info.phone,
-#             "passport": basic_info.passport,
-#             "city": basic_info.city,
-#             "country": basic_info.country,
-#             "role": basic_info.role,
-#             "urls": {
-#                 "linkedIn": basic_info.Urls.linkedIn,
-#                 "github": basic_info.Urls.github,
-#             }
-#         })
-#
-#         return JSONResponse(
-#             content={"message": "Basic details added successfully"},
-#             status_code=200
-#         )
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=500, detail=f"Error adding basic details: {str(e)}"
-#         ) from e
 
 
 @candidate_router.post("/update-picture")
@@ -168,7 +125,6 @@ async def save_progress(
 
         existing_progress_steps = candidate_doc.to_dict().get("progressSteps", {})
 
-        # Define the correct order of progress steps
         correct_order = [
             "Basic Information",
             "Education",
@@ -183,7 +139,6 @@ async def save_progress(
             if step not in existing_progress_steps:
                 existing_progress_steps[step] = {"done": False, "percentage": 0}
 
-        # Merge new progress updates with existing ones
         for step, values in progress_steps.items():
             if step in existing_progress_steps:
                 existing_progress_steps[step].update(values)
@@ -239,17 +194,17 @@ async def update_basic_information(basic_info: BasicInformation = Body(...)):
         raise HTTPException(status_code=500, detail=f"Error updating candidate information: {str(e)}")
 
 
-@candidate_router.post("/save-education", tags=["Candidate Management"])
-async def save_education(
+@candidate_router.put("/education", tags=["Candidate Management"])
+async def update_education(
         email: str = Query(..., example="nsovo1@example.com"),
         educationList: List[Education] = []
 ):
     """
-    Updates the education field for a candidate in Firestore by email.
+    Replaces the education field for a candidate in Firestore by email (idempotent PUT).
 
     Args:
         email (str): The email of the candidate to update.
-        educationList (List[Education]): The list of education records.
+        educationList (List[Education]): The full list of education records to save.
 
     Returns:
         JSONResponse: A response indicating the success or failure of the update.
@@ -265,14 +220,12 @@ async def save_education(
         candidate_doc = candidate_docs[0]
         candidate_ref = candidates_ref.document(candidate_doc.id)
 
-        existing_education = candidate_doc.to_dict().get("education", [])
-
-        updated_education = existing_education + [edu.dict() for edu in educationList]
+        updated_education = [edu.dict() for edu in educationList]
 
         candidate_ref.update({"education": updated_education})
 
         return JSONResponse(
-            content={"message": "Education data saved successfully", "education": updated_education},
+            content={"message": "Education data updated successfully", "education": updated_education},
             status_code=200
         )
 
@@ -282,5 +235,44 @@ async def save_education(
         ) from e
 
 
+@candidate_router.put("/job-preference", tags=["Candidate Management"])
+async def update_job_preferences(
+        email: str = Query(..., example="nsovo1@example.com"),
+        jobPreferences: List[JobPreference] = []
+):
+    """
+    Replaces the job preferences for a candidate by email (idempotent).
+
+    Args:
+        email (str): The email of the candidate to update.
+        jobPreferences (List[JobPreference]): A list of job preference objects to save.
+
+    Returns:
+        JSONResponse: A success or failure message.
+    """
+    try:
+        candidates_ref = db.collection("candidate")
+        query = candidates_ref.where("email", "==", email).stream()
+
+        candidate_docs = [doc for doc in query]
+        if not candidate_docs:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        candidate_doc = candidate_docs[0]
+        candidate_ref = candidates_ref.document(candidate_doc.id)
+
+        updated_preferences = [job.dict() for job in jobPreferences]
+
+        candidate_ref.update({"jobPreference": updated_preferences})
+
+        return JSONResponse(
+            content={"message": "Job preferences updated successfully", "jobPreference": updated_preferences},
+            status_code=200
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error updating job preferences: {str(e)}"
+        ) from e
 
 
