@@ -123,10 +123,14 @@ class JobPreference(BaseModel):
     """
     Schema for job preference fields.
     """
-    role: str
-    location: str
     type: str
-    salary: int
+    minSalary: int
+    maxSalary: int
+    workLocation: str
+    relocate: str
+    desiredRole: str
+    experience: str
+    idealJob: str
 
 
 class Skills(BaseModel):
