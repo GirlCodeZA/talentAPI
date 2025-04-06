@@ -9,7 +9,6 @@ from app.routes.candidate import candidate_router as candidate_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
-
 app = FastAPI(
     title="Talent FastAPI",
     description="Talent API",

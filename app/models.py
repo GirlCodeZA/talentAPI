@@ -4,9 +4,9 @@ Defines Pydantic models for user authentication requests.
 
 import re
 
-from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo
+from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo, RootModel
 from enum import Enum
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 
 class ProfileStatus(str, Enum):
@@ -38,7 +38,6 @@ class SignUpSchema(BaseModel):
         if not re.match(r"^[A-Za-z]+$", value):
             raise ValueError(f"{info.field_name} must contain only alphabetic characters")
         return value
-            
 
 
 class LoginSchema(BaseModel):
@@ -65,7 +64,19 @@ class ProgressStep(BaseModel):
 
 
 class ProgressModel(BaseModel):
-    steps: Dict[str, ProgressStep] = {}
+    steps: Dict[str, ProgressStep]
+
+    @staticmethod
+    def default_steps() -> Dict[str, ProgressStep]:
+        return {
+            "Basic Information": ProgressStep(done=False, percentage=0),
+            "Education": ProgressStep(done=False, percentage=0),
+            "Work Experience": ProgressStep(done=False, percentage=0),
+            "Job Preference": ProgressStep(done=False, percentage=0),
+            "Skills": ProgressStep(done=False, percentage=0),
+            "Projects": ProgressStep(done=False, percentage=0),
+            "Awards": ProgressStep(done=False, percentage=0)
+        }
 
 
 class Urls(BaseModel):
@@ -99,8 +110,7 @@ class Education(BaseModel):
     Schema for education fields.
     """
     institution: str
-    degree: str
-    course: str
+    qualification : str
     startDate: str
     endDate: str
     description: str
@@ -111,12 +121,11 @@ class WorkExperience(BaseModel):
     """
     Schema for work experience fields.
     """
-    company: str
-    position: str
-    startYear: int
-    endYear: int
-    city: str
-    country: str
+    organization: str
+    jobTitle: str
+    startDate: str
+    endDate: str
+    description: str
 
 
 class JobPreference(BaseModel):
@@ -133,22 +142,18 @@ class JobPreference(BaseModel):
     idealJob: str
 
 
-class Skills(BaseModel):
-    """
-    Schema for skills fields.
-    """
-    skill: str
-    proficiency: str
+class Skills(RootModel[List[str]]):
+    """A list of skill strings."""
+    pass
 
 
 class Projects(BaseModel):
     """
     Schema for projects fields.
     """
-    project: str
+    title: str
     description: str
-    startYear: int
-    endYear: int
+    github: str
 
 
 class Awards(BaseModel):
@@ -157,7 +162,7 @@ class Awards(BaseModel):
     """
     award: str
     description: str
-    year: int
+    date: str
 
 
 class Profile(BaseModel):
@@ -172,4 +177,5 @@ class Profile(BaseModel):
     projects: Projects
     awards: Awards
     status: ProfileStatus
-    progress: ProgressModel = ProgressModel()
+    progress: ProgressModel = Field(default_factory=lambda: ProgressModel(steps=ProgressModel.default_steps()))
+

@@ -6,9 +6,10 @@ from firebase_admin import auth
 
 from app.firebase import db
 from app.firebase import firebase
-from app.models import LoginSchema, SignUpSchema
+from app.models import LoginSchema, SignUpSchema, ProgressModel
 
 router = APIRouter()
+
 @router.post("/signup")
 async def create_an_account(
         user_data: SignUpSchema = Body(
@@ -21,45 +22,29 @@ async def create_an_account(
             }
         )
 ):
-    """
-    Creates a new user account with the provided email and password,
-    and stores user data in Firestore with default progress steps.
-    """
     try:
-        # Create User in Firebase Authentication
         user = auth.create_user(email=user_data.email, password=user_data.password)
-
-        # Prepare Firestore Data
         created_at = datetime.utcnow().isoformat()
 
-        progress_steps_default = {
-            "Basic Information": {"done": False, "percentage": 0},
-            "Education": {"done": False, "percentage": 0},
-            "Work Experience": {"done": False, "percentage": 0},
-            "Job Preference": {"done": False, "percentage": 0},
-            "Skills": {"done": False, "percentage": 0},
-            "Projects": {"done": False, "percentage": 0},
-            "Awards": {"done": False, "percentage": 0}
-        }
+        progress_steps_default = ProgressModel.default_steps()
 
         user_data_to_store = {
             "uid": user.uid,
-            "email": user_data.email,
-            "firstName": user_data.firstName,
-            "lastName": user_data.lastName,
             "status": "PENDING",
             "createdAt": created_at,
-            "progressSteps": progress_steps_default
+            "progressSteps": progress_steps_default,
+            "basicInfo": {
+                "firstName": user_data.firstName,
+                "lastName": user_data.lastName,
+                "email": user_data.email
+            }
         }
 
-        # Save User in Firestore "candidate" Collection
         user_ref = db.collection("candidate").document(user.uid)
         user_ref.set(user_data_to_store)
 
         return JSONResponse(
-            content={
-                "message": f"Account created successfully. User ID: {user.uid}"
-            },
+            content={"message": f"Account created successfully. User ID: {user.uid}"},
             status_code=status.HTTP_201_CREATED
         )
 
@@ -74,6 +59,7 @@ async def create_an_account(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating account: {str(e)}"
         )
+
 
 
 @router.post("/login")
