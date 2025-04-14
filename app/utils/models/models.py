@@ -160,7 +160,7 @@ class Awards(BaseModel):
     """
     Schema for awards fields.
     """
-    award: str
+    title: str
     description: str
     date: str
 
@@ -178,4 +178,14 @@ class Profile(BaseModel):
     awards: Awards
     status: ProfileStatus
     progress: ProgressModel = Field(default_factory=lambda: ProgressModel(steps=ProgressModel.default_steps()))
+
+
+class Account(BaseModel):
+    """
+    Schema for account-related settings.
+    """
+    activelyLooking: Optional[bool] = False
+    hideFromCompanies: Optional[List[str]] = Field(default_factory=list)
+
+
 
