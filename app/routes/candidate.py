@@ -1,25 +1,37 @@
 import uuid
 from typing import List
 
+from app.settings import settings
+import boto3
+from botocore.config import Config
+
+from botocore.exceptions import NoCredentialsError
+
 from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 from firebase_admin import firestore
 
-from app.firebase import db, bucket
-from app.models import BasicInformation, Education, JobPreference, ProgressModel, ProgressStep, WorkExperience, Skills, \
-    Projects
+from app.firebase import db
+from app.utils.models.models import BasicInformation, Education, JobPreference, ProgressModel, ProgressStep, WorkExperience, \
+    Projects, Account, Awards
 
-candidate_router = APIRouter()
-
+s3_client = boto3.client(
+    "s3",
+    region_name=settings.aws_region,
+    aws_access_key_id=settings.aws_access_key,
+    aws_secret_access_key=settings.aws_secret_key,
+    config=Config(
+        signature_version="s3v4",
+        s3={'addressing_style': 'virtual'}
+    )
+)
 
 db = firestore.client()
 candidate_router = APIRouter()
 
-@candidate_router.get("/candidate")
+@candidate_router.get("/candidate", tags=["Candidate Management"])
 async def get_candidate_by_email(email: str = Query(...)):
     try:
-        print(f"[INFO] Looking for candidate with email: {email}")
-
         candidates_ref = db.collection("candidate")
         query = candidates_ref.where("basicInfo.email", "==", email).stream()
 
@@ -32,7 +44,6 @@ async def get_candidate_by_email(email: str = Query(...)):
             break
 
         if not candidate:
-            print(f"[WARN] No candidate found with email: {email}")
             raise HTTPException(status_code=404, detail="Candidate not found")
 
         default_steps = ProgressModel.default_steps()
@@ -42,6 +53,11 @@ async def get_candidate_by_email(email: str = Query(...)):
             step: ProgressStep(**progress_steps_data.get(step, default_steps[step])).dict()
             for step in default_steps
         }
+
+        # 👇 Add this block to inject the signed URL
+        file_key = candidate.get("profilePicture")
+        if file_key:
+            candidate["profilePictureSignedUrl"] = generate_signed_url(file_key)
 
         response = {
             "id": candidate_id,
@@ -54,50 +70,47 @@ async def get_candidate_by_email(email: str = Query(...)):
     except HTTPException as he:
         raise he
     except Exception as e:
-        print(f"[ERROR] Exception while fetching candidate: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching candidate: {str(e)}"
         )
 
 
-@candidate_router.post("/update-picture")
-async def update_picture(
-        candidate_id: str = Query(..., example="candidate123"),
+@candidate_router.post("/update-picture", tags=["Candidate Management"])
+async def upload_file(
+        email: str = Query(...),
         file: UploadFile = File(...)
 ):
-    """
-    Uploads a profile picture to Firebase Storage and links it to the candidate in Firestore.
-    """
     try:
-        # Step 1: Generate a unique file name
         file_extension = file.filename.split(".")[-1]
-        file_name = f"profile-pictures/{candidate_id}-{uuid.uuid4()}.{file_extension}"
+        file_key = f"{uuid.uuid4()}.{file_extension}"
+        s3_client.upload_fileobj(file.file, settings.aws_bucket_name, file_key)
+        file_url = f"https://{settings.aws_bucket_name}.s3.{settings.aws_region}.amazonaws.com/{file_key}"
 
-        # Step 2: Upload the file to Firebase Storage
-        blob = bucket.blob(file_name)
-        blob.upload_from_file(file.file, content_type=file.content_type)
-        blob.make_public()  # Make the file publicly accessible
-        download_url = blob.public_url
 
-        # Step 3: Update the candidate's Firestore record with the profile picture URL
-        candidate_ref = db.collection("candidate").document(candidate_id)
-        candidate_doc = candidate_ref.get()
+        # Save the URL in Firestore
+        candidates_ref = db.collection("candidate")
+        query = candidates_ref.where("basicInfo.email", "==", email).stream()
+        candidate_docs = [doc for doc in query]
 
-        if not candidate_doc.exists:
+        if not candidate_docs:
             raise HTTPException(status_code=404, detail="Candidate not found")
 
-        candidate_ref.update({"profile_picture": download_url})
+        candidate_ref = candidates_ref.document(candidate_docs[0].id)
+        candidate_ref.update({
+            "profilePicture": file_key
+        })
 
-        return JSONResponse(
-            content={
-                "message": "Profile picture updated successfully",
-                "profile_picture_url": download_url
-            },
-            status_code=200
-        )
+        return {
+            "message": "Profile picture updated successfully",
+            "file_url": file_key
+        }
+
+    except NoCredentialsError:
+        return {"error": "Credentials not available"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error uploading picture: {str(e)}") from e
+        return {"error": str(e)}
+
 
 
 @candidate_router.put("/save-progress", tags=["Candidate Management"])
@@ -352,7 +365,6 @@ async def update_skills(
         )
 
 
-
 @candidate_router.put("/projects", tags=["Candidate Management"])
 async def update_projects(
         email: str = Query(..., example="user@example.com"),
@@ -397,8 +409,6 @@ async def update_projects(
         ) from e
 
 
-from app.models import Awards  # Import the model if it's defined elsewhere
-
 @candidate_router.put("/awards", tags=["Candidate Management"])
 async def update_awards(
         email: str = Query(..., example="user@example.com"),
@@ -485,3 +495,43 @@ async def update_awards(
             status_code=500,
             detail=f"Error updating awards: {str(e)}"
         ) from e
+
+
+@candidate_router.put("/account-settings", tags=["Candidate Management"])
+async def update_account_settings(
+        email: str = Query(...),
+        account: Account = Body(...)
+):
+    """
+    Updates account-related settings for the candidate.
+    """
+    try:
+        candidates_ref = db.collection("candidate")
+        query = candidates_ref.where("basicInfo.email", "==", email).stream()
+        candidate_docs = [doc for doc in query]
+
+        if not candidate_docs:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        candidate_doc = candidate_docs[0]
+        candidate_ref = candidates_ref.document(candidate_doc.id)
+
+        candidate_ref.update({
+            "account": account.dict()
+        })
+
+        return JSONResponse(
+            content={"message": "Account settings updated successfully."},
+            status_code=200
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def generate_signed_url(key: str, expiration: int = 604800):
+    return s3_client.generate_presigned_url(
+        ClientMethod="get_object",
+        Params={"Bucket": settings.aws_bucket_name, "Key": key},
+        ExpiresIn=expiration
+    )

@@ -10,5 +10,6 @@ firebase_config = {
     "messagingSenderId": "565928155897",
     "appId": "1:565928155897:web:74e66194deb6f390876028",
     "measurementId": "G-M000JMGV0W",
-    "databaseURL": ""
+    "databaseURL": "",
+    "signInWithPasswordBaseURL": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
 }

@@ -4,13 +4,17 @@ from fastapi import APIRouter, HTTPException, Request, Body, status
 from fastapi.responses import JSONResponse
 from firebase_admin import auth
 
+from app.utils.logger import log_error
+
+from app.config import firebase_config
+from app.services.auth_service import verify_current_password, update_password
 from app.firebase import db
 from app.firebase import firebase
-from app.models import LoginSchema, SignUpSchema, ProgressModel
+from app.utils.models.models import LoginSchema, SignUpSchema, ProgressModel
 
 router = APIRouter()
 
-@router.post("/signup")
+@router.post("/signup", tags=["Auth"])
 async def create_an_account(
         user_data: SignUpSchema = Body(
             ...,
@@ -32,7 +36,9 @@ async def create_an_account(
             "uid": user.uid,
             "status": "PENDING",
             "createdAt": created_at,
-            "progressSteps": progress_steps_default,
+            "progressSteps": {
+                key: step.dict() for key, step in progress_steps_default.items()
+            },
             "basicInfo": {
                 "firstName": user_data.firstName,
                 "lastName": user_data.lastName,
@@ -62,7 +68,7 @@ async def create_an_account(
 
 
 
-@router.post("/login")
+@router.post("/login",  tags=["Auth"])
 async def login(user_data: LoginSchema = Body(..., example={
     "email": "user@example.com",
     "password": "your_password"
@@ -83,13 +89,18 @@ async def login(user_data: LoginSchema = Body(..., example={
         token = user['idToken']
         return JSONResponse(content={"token": user['idToken']}, status_code=200)
     except Exception as e:
+        await log_error("Login failed", {
+            "email": user_data.email,
+            "error": str(e),
+            "endpoint": "/login"
+        })
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Login failed: {str(e)}"
-        ) from e
+        )
 
 
-@router.post("/ping")
+@router.post("/ping", tags=["App Health"])
 async def validate_token(request: Request):
     """
     Validates a provided JWT token from the request headers.
@@ -110,3 +121,62 @@ async def validate_token(request: Request):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
+
+@router.post("/change-password", tags=["Auth"])
+async def change_password(
+        email: str = Body(...),
+        current_password: str = Body(...),
+        new_password: str = Body(...)
+):
+    try:
+        api_key = firebase_config["apiKey"]
+
+        _ = verify_current_password(email, current_password, api_key)
+
+        uid = auth.get_user_by_email(email).uid
+        update_password(uid, new_password)
+
+        return {"message": "Password updated successfully"}
+
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/github-login", tags=["Auth"])
+async def github_login(idToken: str = Body(..., embed=True)):
+    """
+    Verifies the Firebase ID token from GitHub OAuth login
+    and returns user details or creates them in Firestore.
+    """
+    try:
+        decoded_token = auth.verify_id_token(idToken)
+        uid = decoded_token['uid']
+        email = decoded_token.get('email')
+
+        # Check if user already exists in Firestore
+        user_ref = db.collection("candidate").document(uid)
+        user_doc = user_ref.get()
+
+        if not user_doc.exists:
+            # Create a minimal user entry
+            created_at = datetime.utcnow().isoformat()
+            user_data_to_store = {
+                "uid": uid,
+                "status": "PENDING",
+                "createdAt": created_at,
+                "basicInfo": {
+                    "email": email,
+                    "firstName": "",  # optional: you could pull from decoded_token
+                    "lastName": ""
+                },
+                "progressSteps": ProgressModel.default_steps()
+            }
+            user_ref.set(user_data_to_store)
+
+        return JSONResponse(content={"message": "GitHub login successful", "uid": uid}, status_code=200)
+
+    except Exception as e:
+        print("GitHub login error:", e)
+        raise HTTPException(status_code=401, detail="Invalid ID token or user verification failed")

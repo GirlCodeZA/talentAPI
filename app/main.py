@@ -6,6 +6,8 @@ Sets up the FastAPI instance and registers routes.
 from fastapi import FastAPI
 from app.routes.auth import router as auth_router
 from app.routes.candidate import candidate_router as candidate_router
+from app.routes.jobs import router as job_router
+from app.routes.matched import router as matched_job_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -38,3 +40,7 @@ app.add_middleware(
 # Register routes
 app.include_router(auth_router)
 app.include_router(candidate_router)
+app.include_router(job_router)
+app.include_router(matched_job_router)
+
+
