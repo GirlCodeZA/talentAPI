@@ -28,7 +28,7 @@ class SignUpSchema(BaseModel):
     password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
     firstName: str
     lastName: str
-    status: Optional[ProfileStatus] = ProfileStatus.PENDING
+    # status: Optional[ProfileStatus] = ProfileStatus.PENDING
 
     @field_validator("firstName", "lastName")
     @classmethod
@@ -96,7 +96,7 @@ class BasicInformation(BaseModel):
     email: EmailStr
     phone: str
     description: str
-    idNo: str
+    idNo: Optional[str] = None
     passport:  Optional[str] = None
     city: Optional[str] = None
     country: str
@@ -188,4 +188,7 @@ class Account(BaseModel):
     hideFromCompanies: Optional[List[str]] = Field(default_factory=list)
 
 
+class StatusUpdateSchema(BaseModel):
+    email: str
+    status: ProfileStatus
 

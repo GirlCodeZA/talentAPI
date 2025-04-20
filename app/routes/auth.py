@@ -4,13 +4,17 @@ from fastapi import APIRouter, HTTPException, Request, Body, status
 from fastapi.responses import JSONResponse
 from firebase_admin import auth
 
+from app.models.models import SignUpSchema, ProgressModel, LoginSchema, ProfileStatus
 from app.utils.logger import log_error
 
 from app.config import firebase_config
 from app.services.auth_service import verify_current_password, update_password
 from app.firebase import db
 from app.firebase import firebase
-from app.utils.models.models import LoginSchema, SignUpSchema, ProgressModel
+import requests
+
+GITHUB_USER_API = "https://api.github.com/user"
+GITHUB_EMAILS_API = "https://api.github.com/user/emails"
 
 router = APIRouter()
 
@@ -34,7 +38,7 @@ async def create_an_account(
 
         user_data_to_store = {
             "uid": user.uid,
-            "status": "PENDING",
+            "status": ProfileStatus.PENDING,
             "createdAt": created_at,
             "progressSteps": {
                 key: step.dict() for key, step in progress_steps_default.items()
@@ -180,3 +184,64 @@ async def github_login(idToken: str = Body(..., embed=True)):
     except Exception as e:
         print("GitHub login error:", e)
         raise HTTPException(status_code=401, detail="Invalid ID token or user verification failed")
+
+
+@router.post("/github-login", tags=["Auth"])
+async def github_login(accessToken: str = Body(..., embed=True)):
+    """
+    Verifies GitHub OAuth access token, fetches user data, and returns Firebase custom token.
+    """
+    try:
+        # Get GitHub user info
+        headers = {"Authorization": f"Bearer {accessToken}"}
+        user_response = requests.get(GITHUB_USER_API, headers=headers)
+        user_response.raise_for_status()
+        user_data = user_response.json()
+
+        # Get primary email (in case it's not public in `user_data`)
+        email_response = requests.get(GITHUB_EMAILS_API, headers=headers)
+        email_response.raise_for_status()
+        email_data = email_response.json()
+        primary_email = next((e["email"] for e in email_data if e.get("primary")), None)
+
+        github_uid = f"github:{user_data['id']}"
+        display_name = user_data.get("name") or user_data.get("login")
+        email = primary_email or user_data.get("email")
+
+        # Create or get Firebase user
+        try:
+            user = auth.get_user(github_uid)
+        except auth.UserNotFoundError:
+            user = auth.create_user(
+                uid=github_uid,
+                display_name=display_name,
+                email=email,
+            )
+
+        # Create custom Firebase token
+        custom_token = auth.create_custom_token(github_uid)
+
+        # Firestore user setup
+        user_ref = db.collection("candidate").document(github_uid)
+        user_doc = user_ref.get()
+
+        if not user_doc.exists:
+            created_at = datetime.utcnow().isoformat()
+            user_data_to_store = {
+                "uid": github_uid,
+                "status": "PENDING",
+                "createdAt": created_at,
+                "basicInfo": {
+                    "email": email,
+                    "firstName": display_name.split()[0] if display_name else "",
+                    "lastName": " ".join(display_name.split()[1:]) if display_name and len(display_name.split()) > 1 else ""
+                },
+                "progressSteps": ProgressModel.default_steps()
+            }
+            user_ref.set(user_data_to_store)
+
+        return JSONResponse(content={"customToken": custom_token.decode('utf-8')}, status_code=200)
+
+    except Exception as e:
+        print("GitHub login error:", e)
+        raise HTTPException(status_code=401, detail="GitHub login failed.")
