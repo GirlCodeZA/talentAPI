@@ -2,7 +2,7 @@ from fastapi import APIRouter, Body, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from datetime import datetime
 from app.firebase import db
-from app.utils.models.matched import MatchedJob
+from app.models.matched import MatchedJob
 
 router = APIRouter()
 

@@ -1,6 +1,8 @@
 import uuid
 from typing import List
 
+from app.models.models import ProgressModel, ProgressStep, BasicInformation, Education, JobPreference, WorkExperience, \
+    Projects, Awards, Account, StatusUpdateSchema
 from app.settings import settings
 import boto3
 from botocore.config import Config
@@ -11,9 +13,9 @@ from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile, Req
 from fastapi.responses import JSONResponse
 from firebase_admin import firestore
 
+from typing import Optional
+
 from app.firebase import db
-from app.utils.models.models import BasicInformation, Education, JobPreference, ProgressModel, ProgressStep, WorkExperience, \
-    Projects, Account, Awards
 
 s3_client = boto3.client(
     "s3",
@@ -54,7 +56,7 @@ async def get_candidate_by_email(email: str = Query(...)):
             for step in default_steps
         }
 
-        # 👇 Add this block to inject the signed URL
+        # Add signed URL
         file_key = candidate.get("profilePicture")
         if file_key:
             candidate["profilePictureSignedUrl"] = generate_signed_url(file_key)
@@ -75,20 +77,42 @@ async def get_candidate_by_email(email: str = Query(...)):
             detail=f"Error fetching candidate: {str(e)}"
         )
 
+@candidate_router.put("/status", tags=["Candidate Management"])
+async def update_candidate_status(data: StatusUpdateSchema):
+    try:
+        candidates_ref = db.collection("candidate")
+        query = candidates_ref.where("basicInfo.email", "==", data.email).stream()
+
+        updated = False
+        for doc in query:
+            doc_ref = candidates_ref.document(doc.id)
+            doc_ref.update({"status": data.status})
+            updated = True
+
+        if not updated:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        return JSONResponse(
+            content={"message": f"Status updated to {data.status} for {data.email}"},
+            status_code=200
+        )
+
+    except Exception as e:
+        print("Error updating candidate status:", e)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @candidate_router.post("/update-picture", tags=["Candidate Management"])
-async def upload_file(
+async def upload_image(
         email: str = Query(...),
         file: UploadFile = File(...)
 ):
     try:
-        file_extension = file.filename.split(".")[-1]
-        file_key = f"{uuid.uuid4()}.{file_extension}"
-        s3_client.upload_fileobj(file.file, settings.aws_bucket_name, file_key)
-        file_url = f"https://{settings.aws_bucket_name}.s3.{settings.aws_region}.amazonaws.com/{file_key}"
+        file_url = upload_file_to_s3(file, folder="profile-pictures")
 
+        # Extract just the S3 key (for saving in Firestore)
+        file_key = file_url.split(".com/")[-1]
 
-        # Save the URL in Firestore
+        # Update Firestore
         candidates_ref = db.collection("candidate")
         query = candidates_ref.where("basicInfo.email", "==", email).stream()
         candidate_docs = [doc for doc in query]
@@ -97,19 +121,73 @@ async def upload_file(
             raise HTTPException(status_code=404, detail="Candidate not found")
 
         candidate_ref = candidates_ref.document(candidate_docs[0].id)
-        candidate_ref.update({
-            "profilePicture": file_key
-        })
+        candidate_ref.update({"profilePicture": file_key})
+
+        # Generate signed URL for frontend use
+        signed_url = generate_signed_url(file_key)
 
         return {
             "message": "Profile picture updated successfully",
-            "file_url": file_key
+            "file_key": file_key,
+            "profilePictureSignedUrl": signed_url
         }
 
     except NoCredentialsError:
         return {"error": "Credentials not available"}
     except Exception as e:
         return {"error": str(e)}
+
+
+
+@candidate_router.post("/upload-file", tags=["Candidate Management"])
+async def upload_education_file(
+        email: str = Query(...),
+        index: int = Query(...),  # index of the education entry to update
+        file: UploadFile = File(...),
+        folder: Optional[str] = Query("education-documents")
+):
+    """
+    Upload a file to S3 and attach the fileUrl to the candidate's education[index].
+    """
+    try:
+        # Upload file
+        file_url = upload_file_to_s3(file, folder)
+        file_key = file_url.split(".com/")[-1]
+
+        # Update candidate's education[n].fileUrl
+        candidates_ref = db.collection("candidate")
+        query = candidates_ref.where("basicInfo.email", "==", email).stream()
+        candidate_docs = [doc for doc in query]
+
+        if not candidate_docs:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        candidate_doc = candidate_docs[0]
+        candidate_data = candidate_doc.to_dict()
+
+        education_list = candidate_data.get("education", [])
+        if index >= len(education_list):
+            raise HTTPException(status_code=400, detail="Invalid education index")
+
+        education_list[index]["fileUrl"] = file_key
+
+        # Save updated education list
+        candidate_ref = candidates_ref.document(candidate_doc.id)
+        candidate_ref.update({"education": education_list})
+
+        # Generate signed URL
+        signed_url = generate_signed_url(file_key)
+
+        return {
+            "message": "Education file uploaded and updated successfully",
+            "file_key": file_key,
+            "fileUrlSigned": signed_url
+        }
+
+    except NoCredentialsError:
+        raise HTTPException(status_code=500, detail="AWS credentials missing")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 
@@ -535,3 +613,19 @@ def generate_signed_url(key: str, expiration: int = 604800):
         Params={"Bucket": settings.aws_bucket_name, "Key": key},
         ExpiresIn=expiration
     )
+
+
+def upload_file_to_s3(file: UploadFile, folder: Optional[str] = "") -> str:
+    file_extension = file.filename.split(".")[-1]
+    file_key = f"{folder}/{uuid.uuid4()}.{file_extension}" if folder else f"{uuid.uuid4()}.{file_extension}"
+
+    # ✅ Correct usage: (Fileobj, Bucket, Key)
+    s3_client.upload_fileobj(
+        Fileobj=file.file,
+        Bucket=settings.aws_bucket_name,
+        Key=file_key
+    )
+
+    file_url = f"https://{settings.aws_bucket_name}.s3.{settings.aws_region}.amazonaws.com/{file_key}"
+    return file_url
+

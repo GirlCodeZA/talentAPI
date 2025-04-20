@@ -13,3 +13,4 @@ firebase_config = {
     "databaseURL": "",
     "signInWithPasswordBaseURL": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
 }
+
