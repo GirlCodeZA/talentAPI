@@ -3,6 +3,7 @@ from typing import List
 
 from app.models.models import ProgressModel, ProgressStep, BasicInformation, Education, JobPreference, WorkExperience, \
     Projects, Awards, Account, StatusUpdateSchema
+from app.routes.utils import generate_signed_url, upload_file_to_s3
 from app.settings import settings
 import boto3
 from botocore.config import Config
@@ -12,8 +13,9 @@ from botocore.exceptions import NoCredentialsError
 from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 from firebase_admin import firestore
-
 from typing import Optional
+import logging
+logger = logging.getLogger("uvicorn")
 
 from app.firebase import db
 
@@ -138,7 +140,6 @@ async def upload_image(
         return {"error": str(e)}
 
 
-
 @candidate_router.post("/upload-file", tags=["Candidate Management"])
 async def upload_education_file(
         email: str = Query(...),
@@ -153,6 +154,7 @@ async def upload_education_file(
         # Upload file
         file_url = upload_file_to_s3(file, folder)
         file_key = file_url.split(".com/")[-1]
+        logger.info(f"Uploaded file to S3: {file_key}")
 
         # Update candidate's education[n].fileUrl
         candidates_ref = db.collection("candidate")
@@ -187,6 +189,7 @@ async def upload_education_file(
     except NoCredentialsError:
         raise HTTPException(status_code=500, detail="AWS credentials missing")
     except Exception as e:
+        logger.error(f"Upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
@@ -607,25 +610,24 @@ async def update_account_settings(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def generate_signed_url(key: str, expiration: int = 604800):
-    return s3_client.generate_presigned_url(
-        ClientMethod="get_object",
-        Params={"Bucket": settings.aws_bucket_name, "Key": key},
-        ExpiresIn=expiration
-    )
+# def generate_signed_url(key: str, expiration: int = 604800):
+#     return s3_client.generate_presigned_url(
+#         ClientMethod="get_object",
+#         Params={"Bucket": settings.aws_bucket_name, "Key": key},
+#         ExpiresIn=expiration
+#     )
 
 
-def upload_file_to_s3(file: UploadFile, folder: Optional[str] = "") -> str:
-    file_extension = file.filename.split(".")[-1]
-    file_key = f"{folder}/{uuid.uuid4()}.{file_extension}" if folder else f"{uuid.uuid4()}.{file_extension}"
-
-    # ✅ Correct usage: (Fileobj, Bucket, Key)
-    s3_client.upload_fileobj(
-        Fileobj=file.file,
-        Bucket=settings.aws_bucket_name,
-        Key=file_key
-    )
-
-    file_url = f"https://{settings.aws_bucket_name}.s3.{settings.aws_region}.amazonaws.com/{file_key}"
-    return file_url
+# def upload_file_to_s3(file: UploadFile, folder: Optional[str] = "") -> str:
+#     file_extension = file.filename.split(".")[-1]
+#     file_key = f"{folder}/{uuid.uuid4()}.{file_extension}" if folder else f"{uuid.uuid4()}.{file_extension}"
+#
+#     s3_client.upload_fileobj(
+#         Fileobj=file.file,
+#         Bucket=settings.aws_bucket_name,
+#         Key=file_key
+#     )
+#
+#     file_url = f"https://{settings.aws_bucket_name}.s3.{settings.aws_region}.amazonaws.com/{file_key}"
+#     return file_url
 

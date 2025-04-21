@@ -4,13 +4,16 @@ from fastapi import APIRouter, HTTPException, Request, Body, status
 from fastapi.responses import JSONResponse
 from firebase_admin import auth
 
-from app.models.models import SignUpSchema, ProgressModel, LoginSchema, ProfileStatus
+from pydantic import EmailStr
+
+from app.models.models import SignUpSchema, ProgressModel, LoginSchema, ProfileStatus, UserType
 from app.utils.logger import log_error
 
 from app.config import firebase_config
 from app.services.auth_service import verify_current_password, update_password
 from app.firebase import db
 from app.firebase import firebase
+
 import requests
 
 GITHUB_USER_API = "https://api.github.com/user"
@@ -19,39 +22,57 @@ GITHUB_EMAILS_API = "https://api.github.com/user/emails"
 router = APIRouter()
 
 @router.post("/signup", tags=["Auth"])
-async def create_an_account(
-        user_data: SignUpSchema = Body(
-            ...,
-            example={
-                "email": "user@example.com",
-                "password": "your_password",
-                "firstName": "John",
-                "lastName": "Doe"
-            }
-        )
-):
+async def create_an_account(user_data: SignUpSchema = Body(...)):
     try:
-        user = auth.create_user(email=user_data.email, password=user_data.password)
+        try:
+            auth.get_user_by_email(user_data.email)
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email already exists. Please log in or use a different email."
+            )
+        except auth.UserNotFoundError:
+            pass
+
+        user = auth.create_user(
+            email=user_data.email,
+            password=user_data.password
+        )
+
         created_at = datetime.utcnow().isoformat()
 
-        progress_steps_default = ProgressModel.default_steps()
-
-        user_data_to_store = {
+        data_to_store = {
             "uid": user.uid,
             "status": ProfileStatus.PENDING,
             "createdAt": created_at,
-            "progressSteps": {
+            "userType": user_data.userType,
+        }
+
+        if user_data.userType == UserType.CANDIDATE:
+            progress_steps_default = ProgressModel.default_steps()
+            data_to_store["progressSteps"] = {
                 key: step.dict() for key, step in progress_steps_default.items()
-            },
-            "basicInfo": {
+            }
+            data_to_store["basicInfo"] = {
                 "firstName": user_data.firstName,
                 "lastName": user_data.lastName,
                 "email": user_data.email
             }
-        }
+            collection = "candidate"
 
-        user_ref = db.collection("candidate").document(user.uid)
-        user_ref.set(user_data_to_store)
+        elif user_data.userType == UserType.EMPLOYER:
+            data_to_store.update({
+                "firstName": user_data.firstName,
+                "lastName": user_data.lastName,
+                "email": user_data.email,
+                "contactNumber": user_data.contactNumber,
+                "companyName": user_data.companyName
+            })
+            collection = "employer"
+
+        else:
+            raise HTTPException(status_code=400, detail="Invalid user type")
+
+        db.collection(collection).document(user.uid).set(data_to_store)
 
         return JSONResponse(
             content={"message": f"Account created successfully. User ID: {user.uid}"},
@@ -65,33 +86,49 @@ async def create_an_account(
         )
     except Exception as e:
         print("Error during signup:", str(e))
+        await log_error("Signup failed", {
+            "email": user_data.email,
+            "error": str(e),
+            "endpoint": "/signup"
+        })
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating account: {str(e)}"
         )
 
 
-
-@router.post("/login",  tags=["Auth"])
-async def login(user_data: LoginSchema = Body(..., example={
-    "email": "user@example.com",
-    "password": "your_password"
-})):
-    """
-    Authenticates a user and returns a token upon successful login.
-    Args:
-        user_data (LoginSchema): The user data for login.
-    Returns:
-        JSONResponse: A response containing the authentication token.
-    """
-
+@router.post("/login", tags=["Auth"])
+async def login(user_data: LoginSchema = Body(...)):
     try:
         user = firebase.auth().sign_in_with_email_and_password(
             user_data.email,
             user_data.password
         )
         token = user['idToken']
-        return JSONResponse(content={"token": user['idToken']}, status_code=200)
+
+        user_type = None
+        for utype in ["candidate", "employer"]:
+            if utype == "candidate":
+                docs = list(db.collection(utype).where("basicInfo.email", "==", user_data.email).stream())
+            else:
+                docs = list(db.collection(utype).where("email", "==", user_data.email).stream())
+
+            if docs:
+                user_type = utype
+                break
+
+        if not user_type:
+            raise HTTPException(status_code=404, detail="User type not found.")
+
+        return JSONResponse(
+            content={
+                "token": token,
+                "userType": user_type,
+                "redirect": f"{user_type.capitalize()}/Dashboard"
+            },
+            status_code=200
+        )
+
     except Exception as e:
         await log_error("Login failed", {
             "email": user_data.email,
@@ -102,6 +139,23 @@ async def login(user_data: LoginSchema = Body(..., example={
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Login failed: {str(e)}"
         )
+
+
+@router.post("/send-verification-email", tags=["Auth"])
+async def send_verification_email(email: EmailStr):
+    try:
+        user = auth.get_user_by_email(email)
+        link = auth.generate_email_verification_link(email)
+
+        # Ideally: Send link via email service like SendGrid or Mailgun
+        print(f"Verification link for {email}: {link}")
+
+        return {"message": "Verification email sent (check your inbox)", "link": link}
+    except auth.UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.post("/ping", tags=["App Health"])
