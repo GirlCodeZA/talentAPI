@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo
 from enum import Enum
 from typing import Optional, Dict, List
 
+from app.models.shared import UserType
+
 
 class ProfileStatus(str, Enum):
     ACTIVE = "active"
@@ -28,7 +30,10 @@ class SignUpSchema(BaseModel):
     password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
     firstName: str
     lastName: str
-    # status: Optional[ProfileStatus] = ProfileStatus.PENDING
+    userType: UserType = UserType.CANDIDATE
+    # Employer only
+    contactNumber: Optional[str] = None
+    companyName: Optional[str] = None
 
     @field_validator("firstName", "lastName")
     @classmethod
@@ -46,6 +51,7 @@ class LoginSchema(BaseModel):
     """
     email: EmailStr
     password: str = Field(..., min_length=8, description="Password must be at least 8 characters long")
+    userType: UserType = UserType.CANDIDATE
 
     @field_validator("password")
     @classmethod
