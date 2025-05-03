@@ -107,7 +107,7 @@ async def login(user_data: LoginSchema = Body(...)):
         token = user['idToken']
 
         user_type = None
-        for utype in ["candidate", "employer"]:
+        for utype in ["candidate", "employer","admin"]:
             if utype == "candidate":
                 docs = list(db.collection(utype).where("basicInfo.email", "==", user_data.email).stream())
             else:

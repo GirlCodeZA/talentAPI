@@ -12,20 +12,52 @@ class CompanySize(str, Enum):
 
 
 class Industry(str, Enum):
-    TECH = "Technology"
+    TECH = "Tech"
     FINANCE = "Finance"
-    HEALTHCARE = "Healthcare"
     EDUCATION = "Education"
+    HEALTHCARE = "Healthcare"
+    RETAIL = "Retail"
+    HOSPITALITY = "Hospitality"
+    MANUFACTURING = "Manufacturing"
+    CONSTRUCTION = "Construction"
+    TRANSPORTATION = "Transportation"
+    TELECOMMUNICATIONS = "Telecommunications"
+    ENERGY = "Energy"
+    MEDIA = "Media"
+    ENTERTAINMENT = "Entertainment"
+    REAL_ESTATE = "Real Estate"
+    NON_PROFIT = "Non-Profit"
+    GOVERNMENT = "Government"
+    AGRICULTURE = "Agriculture"
+    PHARMACEUTICALS = "Pharmaceuticals"
+    AUTOMOTIVE = "Automotive"
+    AEROSPACE = "Aerospace"
+    BIOTECHNOLOGY = "Biotechnology"
+    CHEMICALS = "Chemicals"
+    CONSUMER_GOODS = "Consumer Goods"
+    FOOD_AND_BEVERAGE = "Food and Beverage"
+    TEXTILES = "Textiles"
+    INSURANCE = "Insurance"
+    LEGAL = "Legal"
+    MARKETING = "Marketing"
+    PUBLIC_RELATIONS = "Public Relations"
+    CONSULTING = "Consulting"
+    ADVERTISING = "Advertising"
+    EVENT_MANAGEMENT = "Event Management"
+    TRAVEL_AND_TOURISM = "Travel and Tourism"
+    SPORTS = "Sports"
+    FASHION = "Fashion"
     OTHER = "Other"
 
 
 class EmployerProfile(BaseModel):
-    uid: str
+    uid: Optional[str] = None
     email: EmailStr
     firstName: str
     lastName: str
     status: str = "pending"
-    createdAt: Optional[str]
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
 
     companyName: Optional[str] = None
     contactNumber: Optional[str] = None

@@ -5,6 +5,7 @@ Sets up the FastAPI instance and registers routes.
 
 from fastapi import FastAPI
 from app.routes.auth import router as auth_router
+from app.routes.admin import admin_router
 from app.routes.candidate import candidate_router as candidate_router
 from app.routes.employer import employer_router
 from app.routes.jobs import router as job_router
@@ -45,6 +46,6 @@ app.include_router(job_router)
 app.include_router(matched_job_router)
 app.include_router(candidate_router, prefix="/candidate", tags=["Candidate Management"])
 app.include_router(employer_router, prefix="/employer", tags=["Employer Management"])
-# app.include_router(admin_router, prefix="/admin", tags=["Admin Management"])
+app.include_router(admin_router, prefix="/admin", tags=["Admin Management"])
 
 
