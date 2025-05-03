@@ -5,21 +5,9 @@ Defines Pydantic models for user authentication requests.
 import re
 
 from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo, RootModel
-from enum import Enum
 from typing import Optional, Dict, List
 
-from app.models.shared import UserType
-
-
-class ProfileStatus(str, Enum):
-    ACTIVE = "active"
-    DEACTIVATED = "deactivated"
-    DELETED = "deleted"
-    PENDING = "pending"
-    SUSPENDED = "suspended"
-    INCOMPLETE = "incomplete"
-    VERIFIED = "verified"
-    ARCHIVED = "archived"
+from app.models.shared import UserType, ProfileStatus
 
 
 class SignUpSchema(BaseModel):
@@ -101,14 +89,16 @@ class BasicInformation(BaseModel):
     lastName: str
     email: EmailStr
     phone: str
-    description: str
+    description: Optional[str] = None
     idNo: Optional[str] = None
     passport:  Optional[str] = None
     city: Optional[str] = None
     country: str
     role: Optional[str] = None
     category: Optional[str] = None
-    urls: Urls
+    urls: Optional[Urls] = None
+    updatedAt: Optional[str] = None
+    createdAt: Optional[str] = None
 
 
 class Education(BaseModel):

@@ -1,9 +1,12 @@
 import uuid
 from typing import List
 
+from app.models.employer import EmployerProfile
+from app.models.jobs import JobModel
+from app.models.matched import MatchedJob
 from app.models.models import ProgressModel, ProgressStep, BasicInformation, Education, JobPreference, WorkExperience, \
     Projects, Awards, Account, StatusUpdateSchema
-from app.routes.utils import generate_signed_url, upload_file_to_s3
+from app.utils.s3_helpers import generate_signed_url, upload_file_to_s3
 from app.settings import settings
 import boto3
 from botocore.config import Config
@@ -610,24 +613,34 @@ async def update_account_settings(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# def generate_signed_url(key: str, expiration: int = 604800):
-#     return s3_client.generate_presigned_url(
-#         ClientMethod="get_object",
-#         Params={"Bucket": settings.aws_bucket_name, "Key": key},
-#         ExpiresIn=expiration
-#     )
+@candidate_router.put("/account-settings", tags=["Candidate Management"])
+def match_candidates_to_job(job: JobModel, employer: EmployerProfile, candidate_list: list[dict]) -> list[MatchedJob]:
+    matched_candidates = []
 
+    for candidate in candidate_list:
+        candidate_skills = candidate.get('skills', [])
 
-# def upload_file_to_s3(file: UploadFile, folder: Optional[str] = "") -> str:
-#     file_extension = file.filename.split(".")[-1]
-#     file_key = f"{folder}/{uuid.uuid4()}.{file_extension}" if folder else f"{uuid.uuid4()}.{file_extension}"
-#
-#     s3_client.upload_fileobj(
-#         Fileobj=file.file,
-#         Bucket=settings.aws_bucket_name,
-#         Key=file_key
-#     )
-#
-#     file_url = f"https://{settings.aws_bucket_name}.s3.{settings.aws_region}.amazonaws.com/{file_key}"
-#     return file_url
+        # Simple skill match check (can be replaced with more advanced logic)
+        skill_match = any(skill in job.skills for skill in candidate_skills)
+
+        if skill_match:
+            matched_job = MatchedJob(
+                candidate_email=candidate['email'],
+                job_id=job.id,
+                job_title=job.title,
+                company_name=employer.companyName or "Unknown Company",
+                description=job.description,
+                tags=[
+                    job.employment_type.value,
+                    job.experience_level or "",
+                    "Remote" if job.location == "remote" else "On-site"
+                ],
+                salary=f"R{job.salary_min} - R{job.salary_max}" if job.salary_min and job.salary_max else None,
+                matched_on=datetime.utcnow(),
+                status="pending",
+                job_accepted="no"  # Default value
+            )
+            matched_candidates.append(matched_job)
+
+    return matched_candidates
 

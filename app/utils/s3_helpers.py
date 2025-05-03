@@ -29,6 +29,3 @@ def generate_signed_url(key: str, expiration: int = 604800):
         ExpiresIn=expiration
     )
 
-def get_user_collection(user_type: str, db):
-    # Can be "candidate", "employer", or "admin"
-    return db.collection(user_type.lower())
