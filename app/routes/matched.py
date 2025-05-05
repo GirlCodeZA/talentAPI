@@ -5,6 +5,8 @@ from app.firebase import db
 from app.models.employer import EmployerProfile
 from app.models.jobs import JobModel
 from app.models.matched import MatchedJob
+from collections import defaultdict, Counter
+
 
 router = APIRouter()
 
@@ -80,4 +82,50 @@ async def get_all_matched_jobs():
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch all matched jobs: {str(e)}"
+        )
+
+
+@router.get("/job-matches-summary", tags=["Matched Jobs"])
+async def job_matches_summary():
+    """
+    Returns summary of job titles with count of total matched candidates
+    and their statuses.
+    """
+    try:
+        matched_ref = db.collection("matched_jobs")
+        matched_docs = matched_ref.stream()
+
+        summary = defaultdict(lambda: {
+            "total": 0,
+            "statuses": {
+                "pending": 0,
+                "viewed": 0,
+                "accepted": 0,
+                "Declined": 0,
+                "interviewed": 0,
+                "offered": 0,
+                "rejected": 0,
+                "hired": 0
+            }
+        })
+
+        for doc in matched_docs:
+            data = doc.to_dict()
+            job_title = data.get("job_title")
+            status = data.get("status", "pending")
+
+            if job_title:
+                summary[job_title]["total"] += 1
+                if status in summary[job_title]["statuses"]:
+                    summary[job_title]["statuses"][status] += 1
+                else:
+                    # Catch unexpected status
+                    summary[job_title]["statuses"][status] = 1
+
+        return JSONResponse(content=summary)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating job matches summary: {str(e)}"
         )

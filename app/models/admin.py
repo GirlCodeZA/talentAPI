@@ -10,17 +10,6 @@ class UserType(str, Enum):
     ADMIN = 'admin'
 
 
-class User(BaseModel):
-    userType: Optional[str] = UserType.CANDIDATE
-    isActive: bool = True
-    firstName: str
-    lastName: str
-    email: EmailStr
-    phone: str
-    updatedAt: Optional[str] = None
-    createdAt: Optional[str] = None
-
-
 class ADMIN(BaseModel):
     userType: Optional[str] = UserType.ADMIN
     isActive: bool = True
