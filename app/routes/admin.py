@@ -2,8 +2,11 @@ from fastapi import APIRouter, Query, HTTPException, Depends, Body
 from fastapi.responses import JSONResponse
 from firebase_admin import firestore
 from datetime import datetime
+from typing import Optional
 
-from app.models.admin import ADMIN, User
+from app.models.admin import ADMIN
+from app.models.shared import UserType
+
 # from app.auth import get_current_user
 
 admin_router = APIRouter()
@@ -132,3 +135,35 @@ async def get_platform_stats():
         return JSONResponse(content=stats)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
+
+
+@admin_router.get("/all-users", tags=["Admin Management"])
+async def get_all_users(user_type: Optional[str] = Query(None, description="Filter by userType")):
+    try:
+        users = []
+
+        if user_type in [None, "admin"]:
+            for doc in db.collection("admins").stream():
+                data = doc.to_dict()
+                data["id"] = doc.id
+                data["userType"] = UserType.ADMIN
+                users.append(data)
+
+        if user_type in [None, "employer"]:
+            for doc in db.collection("employer").stream():
+                data = doc.to_dict()
+                data["id"] = doc.id
+                data["userType"] = UserType.EMPLOYER
+                users.append(data)
+
+        if user_type in [None, "candidate"]:
+            for doc in db.collection("candidates").stream():
+                data = doc.to_dict()
+                data["id"] = doc.id
+                data["userType"] = UserType.CANDIDATE
+                users.append(data)
+
+        return JSONResponse(content=users)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch users: {str(e)}")

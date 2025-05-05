@@ -6,9 +6,13 @@ from datetime import datetime
 class MatchedJobStatus(str, Enum):
     PENDING = "pending"
     VIEWED = "viewed"
+    ACCEPTED = "accepted"
+    DECLINED = "Declined"
     INTERVIEWED = "interviewed"
     OFFERED = "offered"
     REJECTED = "rejected"
+    HIRED = "hired"
+
 
 class MatchedJob(BaseModel):
     candidate_email: str  # For indexing / lookup
@@ -20,4 +24,4 @@ class MatchedJob(BaseModel):
     salary: Optional[str] = None  # Example: "R10000/pm"
     matched_on: datetime = Field(default_factory=datetime.utcnow)
     status: Optional[str] = MatchedJobStatus.PENDING
-    job_accepted: str
+    job_accepted: MatchedJobStatus = None
