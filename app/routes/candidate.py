@@ -61,7 +61,6 @@ async def get_candidate_by_email(email: str = Query(...)):
             for step in default_steps
         }
 
-        # Add signed URL
         file_key = candidate.get("profilePicture")
         if file_key:
             candidate["profilePictureSignedUrl"] = generate_signed_url(file_key)

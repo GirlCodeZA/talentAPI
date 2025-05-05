@@ -69,9 +69,9 @@ async def get_company_info(email: str = Query(...)):
 
         data = docs[0].to_dict()
 
-        logo_key = data.get("logo")
-        if logo_key:
-            data["logoUrl"] = generate_signed_url(logo_key)
+        profile_key = data.get("profilePicture")
+        if profile_key:
+            data["profilePictureSignedUrl"] = generate_signed_url(profile_key)
 
         return JSONResponse(content=data)
 
@@ -191,3 +191,37 @@ async def get_all_employers():
     except Exception as e:
         logger.error(f"Error retrieving all employers: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch employers")
+
+
+@employer_router.post("/update-picture", tags=["Employer Management"])
+async def upload_image(
+        email: str = Query(...),
+        file: UploadFile = File(...)
+):
+    try:
+        file_url = upload_file_to_s3(file, folder="profile-pictures")
+
+        file_key = file_url.split(".com/")[-1]
+
+        candidates_ref = db.collection("employer")
+        query = candidates_ref.where("email", "==", email).stream()
+        candidate_docs = [doc for doc in query]
+
+        if not candidate_docs:
+            raise HTTPException(status_code=404, detail="Employer not found")
+
+        candidate_ref = candidates_ref.document(candidate_docs[0].id)
+        candidate_ref.update({"profilePicture": file_key})
+
+        signed_url = generate_signed_url(file_key)
+
+        return {
+            "message": "Profile picture updated successfully",
+            "file_key": file_key,
+            "profilePictureSignedUrl": signed_url
+        }
+
+    except NoCredentialsError:
+        return {"error": "Credentials not available"}
+    except Exception as e:
+        return {"error": str(e)}
