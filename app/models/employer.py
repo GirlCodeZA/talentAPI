@@ -75,3 +75,4 @@ class EmployerProfile(BaseModel):
     techStack: Optional[List[str]] = []
 
     userType: str = UserType.EMPLOYER
+    profilePicture: Optional[str] = None
