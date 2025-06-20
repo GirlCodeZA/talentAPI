@@ -52,6 +52,10 @@ class LoginSchema(BaseModel):
         return password
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
 class ProgressStep(BaseModel):
     done: bool
     percentage: int
@@ -120,7 +124,7 @@ class WorkExperience(BaseModel):
     organization: str
     jobTitle: str
     startDate: str
-    endDate: str
+    endDate: Optional[str]
     description: str
 
 
@@ -187,4 +191,8 @@ class Account(BaseModel):
 class StatusUpdateSchema(BaseModel):
     email: str
     status: ProfileStatus
+
+
+class ResumeRequest(BaseModel):
+    email: str
 

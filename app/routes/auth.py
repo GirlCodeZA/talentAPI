@@ -4,15 +4,22 @@ from fastapi import APIRouter, HTTPException, Request, Body, status
 from fastapi.responses import JSONResponse
 from firebase_admin import auth
 
-from pydantic import EmailStr
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
-from app.models.models import SignUpSchema, ProgressModel, LoginSchema, ProfileStatus, UserType
+from app.settings import settings
+
+from app.config import SENDGRID_API_KEY, SENDER_EMAIL  # your config setup
+
+from app.models.models import SignUpSchema, ProgressModel, LoginSchema, ProfileStatus, UserType, ForgotPasswordRequest
 from app.utils.logger import log_error
 
 from app.config import firebase_config
 from app.services.auth_service import verify_current_password, update_password
 from app.firebase import db
 from app.firebase import firebase
+
+from pydantic import EmailStr
 
 import requests
 
@@ -299,3 +306,44 @@ async def github_login(accessToken: str = Body(..., embed=True)):
     except Exception as e:
         print("GitHub login error:", e)
         raise HTTPException(status_code=401, detail="GitHub login failed.")
+
+
+@router.post("/forgot-password", tags=["Auth"])
+async def forgot_password(request: ForgotPasswordRequest):
+    print("SENDGRID_API_KEY =", repr(settings.sendgrid_api_key))
+
+    try:
+        # Generate reset link
+        reset_link = auth.generate_password_reset_link(request.email)
+
+        # Compose email
+        message = Mail(
+            from_email=settings.sender_email,
+            to_emails=request.email,
+            subject="Reset Your Password",
+            html_content=f"""
+                <p>Hello,</p>
+                <p>You requested a password reset. Click the link below to reset your password:</p>
+                <a href="{reset_link}">Reset Password</a>
+                <p>If you did not request this, please ignore this email.</p>
+            """
+        )
+
+        # Send email
+        sg = SendGridAPIClient(settings.sendgrid_api_key)
+        sg.send(message)
+
+        return {"message": "Password reset email sent successfully"}
+
+    except auth.UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
+    except auth.ResetPasswordExceedLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many password reset requests. Please try again later."
+        )
+    except Exception as e:
+        print("Forgot password error:", repr(e))
+        raise HTTPException(status_code=500, detail="Failed to send password reset email")
+
+

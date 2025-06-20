@@ -1,24 +1,34 @@
 import uuid
+from datetime import datetime
 from typing import List
 
 from app.models.employer import EmployerProfile
 from app.models.jobs import JobModel
 from app.models.matched import MatchedJob
 from app.models.models import ProgressModel, ProgressStep, BasicInformation, Education, JobPreference, WorkExperience, \
-    Projects, Awards, Account, StatusUpdateSchema
+    Projects, Awards, Account, StatusUpdateSchema, ResumeRequest
+from app.utils.candidate_helpers import fetch_candidate_by_email
 from app.utils.s3_helpers import generate_signed_url, upload_file_to_s3
 from app.settings import settings
 import boto3
+import io
+
 from botocore.config import Config
 
 from botocore.exceptions import NoCredentialsError
 
 from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from firebase_admin import firestore
 from typing import Optional
+from reportlab.pdfgen import canvas
+from weasyprint import HTML
 import logging
 logger = logging.getLogger("uvicorn")
+from jinja2 import Environment, FileSystemLoader
+
+
+env = Environment(loader=FileSystemLoader("app/templates"))
 
 from app.firebase import db
 
@@ -170,9 +180,16 @@ async def upload_education_file(
         candidate_data = candidate_doc.to_dict()
 
         education_list = candidate_data.get("education", [])
-        if index >= len(education_list):
-            raise HTTPException(status_code=400, detail="Invalid education index")
 
+        # Auto-extend the list to ensure the index is valid
+        while len(education_list) <= index:
+            education_list.append({
+                "institution": "",
+                "degree": "",
+                "fileUrl": ""
+            })
+
+        # Update fileUrl at the correct index
         education_list[index]["fileUrl"] = file_key
 
         # Save updated education list
@@ -642,4 +659,32 @@ def match_candidates_to_job(job: JobModel, employer: EmployerProfile, candidate_
             matched_candidates.append(matched_job)
 
     return matched_candidates
+
+
+@candidate_router.post("/generate-resume-html-pdf")
+def generate_resume(request: ResumeRequest):
+    candidate = fetch_candidate_by_email(request.email)
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    template = env.get_template("resume_template.html")
+    html_content = template.render(
+        name=f"{candidate['basicInfo'].get('firstName', '')} {candidate['basicInfo'].get('lastName', '')}",
+        email=candidate['basicInfo'].get('email', ''),
+        role=candidate['basicInfo'].get('role', ''),
+        description=candidate['basicInfo'].get('description', ''),
+        education=candidate.get('education', []),
+        skills=candidate.get('skills', []),
+        projects=candidate.get('projects', []),
+    )
+
+    pdf_buffer = io.BytesIO()
+    HTML(string=html_content).write_pdf(pdf_buffer)
+    pdf_buffer.seek(0)
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=resume.pdf"}
+    )
 

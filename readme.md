@@ -84,3 +84,9 @@ python run.py
 go to firebase console https://console.firebase.google.com/project/talent-dd7dd/overview
 - Firebase Database : that has collections
 - Authentication : users credentials
+
+### System Dependencies (required for WeasyPrint)
+
+On macOS:
+```bash
+brew install pango cairo gdk-pixbuf libffi
