@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: "Arial", sans-serif;
+            padding: 30px;
+            color: #1a1a1a;
+        }
+        h1 { font-size: 24px; color: #e11d48; }
+        h2 { font-size: 18px; margin-top: 30px; color: #be123c; }
+        .section { margin-bottom: 25px; }
+        .tag {
+            background: #fce7f3;
+            color: #be123c;
+            padding: 4px 8px;
+            border-radius: 12px;
+            margin-right: 6px;
+            font-size: 12px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+<h1>{{ name }}</h1>
+<p><strong>Email:</strong> {{ email }}</p>
+<p><strong>Role:</strong> {{ role }}</p>
+
+<div class="section">
+    <h2>About Me</h2>
+    <p>{{ description }}</p>
+</div>
+
+<div class="section">
+    <h2>Education</h2>
+    {% for edu in education %}
+    <p><strong>{{ edu.qualification }}</strong> at {{ edu.institution }} ({{ edu.startDate }} - {{ edu.endDate }})</p>
+    {% endfor %}
+</div>
+
+<div class="section">
+    <h2>Skills</h2>
+    {% for skill in skills %}
+    <span class="tag">{{ skill }}</span>
+    {% endfor %}
+</div>
+
+<div class="section">
+    <h2>Projects</h2>
+    {% for proj in projects %}
+    <p><strong>{{ proj.title }}</strong><br/>
+        <a href="{{ proj.github }}">{{ proj.github }}</a><br/>
+        {{ proj.description }}</p>
+    {% endfor %}
+</div>
+</body>
+</html>

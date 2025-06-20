@@ -30,28 +30,28 @@ async def save_matched_job(job_data: MatchedJob = Body(...)):
         )
 
 
-# @router.get("/matched-jobs", tags=["Matched Jobs"])
-# async def get_matched_jobs(candidate_email: str = Query(..., description="Email of the candidate")):
-#     """
-#     Get all matched jobs for a specific candidate.
-#     """
-#     try:
-#         matched_ref = db.collection("matched_jobs")
-#         query = matched_ref.where("candidate_email", "==", candidate_email).stream()
-#
-#         matched_jobs = []
-#         for doc in query:
-#             job = doc.to_dict()
-#             job["id"] = doc.id
-#             matched_jobs.append(job)
-#
-#         return JSONResponse(content=matched_jobs, status_code=200)
-#
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=500,
-#             detail=f"Failed to fetch matched jobs: {str(e)}"
-#         )
+@router.get("/candidate-matched-jobs", tags=["Matched Jobs"])
+async def get_matched_jobs(candidate_email: str = Query(..., description="Email of the candidate")):
+    """
+    Get all matched jobs for a specific candidate.
+    """
+    try:
+        matched_ref = db.collection("matched_jobs")
+        query = matched_ref.where("candidate_email", "==", candidate_email).stream()
+
+        matched_jobs = []
+        for doc in query:
+            job = doc.to_dict()
+            job["id"] = doc.id
+            matched_jobs.append(job)
+
+        return JSONResponse(content=matched_jobs, status_code=200)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch matched jobs: {str(e)}"
+        )
 
 
 @router.post("/accept-job")

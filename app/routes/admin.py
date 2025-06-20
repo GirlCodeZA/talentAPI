@@ -137,33 +137,48 @@ async def get_platform_stats():
         raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
 
+from fastapi import APIRouter, Query, HTTPException
+from fastapi.responses import JSONResponse
+from enum import Enum
+from typing import Optional
+from firebase_admin import firestore  # Assuming Firestore is used
+
+admin_router = APIRouter()
+db = firestore.client()  # Firestore client instance
+
+class UserType(str, Enum):
+    ADMIN = "admin"
+    EMPLOYER = "employer"
+    CANDIDATE = "candidate"
+
 @admin_router.get("/all-users", tags=["Admin Management"])
-async def get_all_users(user_type: Optional[str] = Query(None, description="Filter by userType")):
+async def get_all_users(user_type: Optional[UserType] = Query(None, description="Filter by userType")):
+    """
+    Retrieve all users. Optionally filter by userType: admin, employer, or candidate.
+    """
     try:
         users = []
 
-        if user_type in [None, "admin"]:
-            for doc in db.collection("admins").stream():
-                data = doc.to_dict()
-                data["id"] = doc.id
-                data["userType"] = UserType.ADMIN
-                users.append(data)
+        user_collections = {
+            UserType.ADMIN: "admin",
+            UserType.EMPLOYER: "employer",
+            UserType.CANDIDATE: "candidate"
+        }
 
-        if user_type in [None, "employer"]:
-            for doc in db.collection("employer").stream():
-                data = doc.to_dict()
-                data["id"] = doc.id
-                data["userType"] = UserType.EMPLOYER
-                users.append(data)
+        if user_type:
+            collections_to_query = [user_type]
+        else:
+            collections_to_query = list(user_collections.keys())
 
-        if user_type in [None, "candidate"]:
-            for doc in db.collection("candidates").stream():
+        for utype in collections_to_query:
+            for doc in db.collection(user_collections[utype]).stream():
                 data = doc.to_dict()
                 data["id"] = doc.id
-                data["userType"] = UserType.CANDIDATE
+                data["userType"] = utype
                 users.append(data)
 
         return JSONResponse(content=users)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch users: {str(e)}")
+
