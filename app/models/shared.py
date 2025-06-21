@@ -1,4 +1,5 @@
 from enum import Enum
+from pydantic import BaseModel, EmailStr
 
 class UserType(str, Enum):
     CANDIDATE = "candidate"
@@ -31,3 +32,8 @@ class ApplicationStatus(str, Enum):
     OFFER_EXTENDED = "offer_extended"
     APPLICATION_REJECTED = "application_rejected"
     CANDIDATE_HIRED = "candidate_hired"
+
+
+class StatusUpdateSchema(BaseModel):
+    email: EmailStr
+    status: ProfileStatus

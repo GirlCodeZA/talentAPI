@@ -10,8 +10,12 @@ from app.models.employer import EmployerProfile
 from app.utils.s3_helpers import upload_file_to_s3, generate_signed_url
 from app.settings import settings
 from pydantic import BaseModel, EmailStr
+from app.models.shared import StatusUpdateSchema
 
 import logging
+
+from app.utils.status_helpers import update_profile_status_by_email
+
 logger = logging.getLogger("uvicorn")
 
 employer_router = APIRouter()
@@ -225,3 +229,9 @@ async def upload_image(
         return {"error": "Credentials not available"}
     except Exception as e:
         return {"error": str(e)}
+
+
+@employer_router.put("/update-status", tags=["Employer Management"])
+async def update_employer_status(data: StatusUpdateSchema):
+    message = await update_profile_status_by_email("employer", data.email, data.status)
+    return {"message": message}

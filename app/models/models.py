@@ -6,6 +6,7 @@ import re
 
 from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo, RootModel
 from typing import Optional, Dict, List
+from enum import Enum
 
 from app.models.shared import UserType, ProfileStatus
 
@@ -188,11 +189,8 @@ class Account(BaseModel):
     hideFromCompanies: Optional[List[str]] = Field(default_factory=list)
 
 
-class StatusUpdateSchema(BaseModel):
-    email: str
-    status: ProfileStatus
-
-
 class ResumeRequest(BaseModel):
     email: str
 
+class EmailRequest(BaseModel):
+    email: EmailStr

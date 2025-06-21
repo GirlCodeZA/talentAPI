@@ -16,3 +16,4 @@ sendgrid
 reportlab
 WeasyPrint>=60.1
 Jinja2>=3.1.2
+httpx

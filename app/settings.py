@@ -7,11 +7,14 @@ class Settings(BaseSettings):
     aws_bucket_name: str
     aws_region: str
 
-    sendgrid_api_key: str = Field(..., alias="SENDGRID_API_KEY")  # <- add this
-    sender_email: str = Field("no-reply@girlcode.com", alias="SENDER_EMAIL")  # optional, defaults
+    sendgrid_api_key: str = Field(..., alias="SENDGRID_API_KEY")
+    sender_email: str = Field("no-reply@girlcode.com", alias="SENDER_EMAIL")
+
+    highwind_api_url: str = Field(..., alias="HIGHWIND_API_URL")
+    highwind_api_key: str = Field(..., alias="HIGHWIND_API_KEY")
 
     class Config:
         env_file = ".env"
-        extra = "forbid"  # optional, already default in v2 but makes intent clear
+        extra = "forbid"
 
 settings = Settings()

@@ -2,7 +2,8 @@ from pydantic import BaseModel, HttpUrl, EmailStr, Field
 from typing import List, Optional
 from enum import Enum
 
-from app.models.shared import UserType
+from app.models.shared import UserType, ProfileStatus
+
 
 class CompanySize(str, Enum):
     SMALL = "1-10"
@@ -55,7 +56,7 @@ class EmployerProfile(BaseModel):
     email: EmailStr
     firstName: str
     lastName: str
-    status: str = "pending"
+    status: str = ProfileStatus.PENDING.value
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None
 

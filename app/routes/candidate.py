@@ -6,12 +6,14 @@ from app.models.employer import EmployerProfile
 from app.models.jobs import JobModel
 from app.models.matched import MatchedJob
 from app.models.models import ProgressModel, ProgressStep, BasicInformation, Education, JobPreference, WorkExperience, \
-    Projects, Awards, Account, StatusUpdateSchema, ResumeRequest
+    Projects, Awards, Account, ResumeRequest, EmailRequest
+from app.models.shared import ProfileStatus, StatusUpdateSchema
 from app.utils.candidate_helpers import fetch_candidate_by_email
 from app.utils.s3_helpers import generate_signed_url, upload_file_to_s3
 from app.settings import settings
 import boto3
 import io
+import httpx
 
 from botocore.config import Config
 
@@ -24,6 +26,9 @@ from typing import Optional
 from reportlab.pdfgen import canvas
 from weasyprint import HTML
 import logging
+
+from app.utils.status_helpers import update_profile_status_by_email
+
 logger = logging.getLogger("uvicorn")
 from jinja2 import Environment, FileSystemLoader
 
@@ -653,7 +658,7 @@ def match_candidates_to_job(job: JobModel, employer: EmployerProfile, candidate_
                 ],
                 salary=f"R{job.salary_min} - R{job.salary_max}" if job.salary_min and job.salary_max else None,
                 matched_on=datetime.utcnow(),
-                status="pending",
+                status= ProfileStatus.PENDING.value,
                 job_accepted="no"  # Default value
             )
             matched_candidates.append(matched_job)
@@ -687,4 +692,79 @@ def generate_resume(request: ResumeRequest):
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=resume.pdf"}
     )
+
+@candidate_router.put("/update-status", tags=["Candidate Management"])
+async def update_candidate_status(data: StatusUpdateSchema):
+    message = await update_profile_status_by_email("candidate", data.email, data.status)
+    return {"message": message}
+
+
+def upload_cv_to_presigned_url(presigned_url: str, pdf_path: str):
+    headers = {
+        "Content-Type": "application/pdf"
+    }
+
+    with open(pdf_path, "rb") as f:
+        data = f.read()
+
+    response = httpx.put(presigned_url, headers=headers, content=data)
+
+    if response.status_code == 200:
+        print("CV uploaded successfully.")
+    else:
+        print(f"Failed to upload CV. Status: {response.status_code}")
+        print(response.text)
+
+
+@candidate_router.post("/candidates/highwind-presigned-url")
+async def get_presigned_url(email_request: EmailRequest):
+    candidate_data = fetch_candidate_by_email(email_request.email)
+
+    if not candidate_data:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    candidate_id = candidate_data["id"]  # Document ID in Firestore
+
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "x-api-key": settings.highwind_api_key,
+    }
+
+    timeout = httpx.Timeout(20.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                settings.highwind_api_url,
+                headers=headers,
+                json=candidate_data,
+            )
+        response.raise_for_status()
+        result = response.json()
+
+        # Extract values to store
+        presigned_url = result.get("presigned_url")
+        candidate_uuid = result.get("candidate_uuid")
+
+        if presigned_url and candidate_uuid:
+            doc_ref = db.collection("candidate").document(candidate_id)
+            doc_ref.update({
+                "presigned_url": presigned_url,
+                "candidate_uuid": candidate_uuid
+            })
+        else:
+            raise HTTPException(status_code=502, detail="Missing expected keys in Highwind response")
+
+        return result
+
+    except httpx.ReadTimeout:
+        raise HTTPException(status_code=504, detail="Request to Highwind API timed out")
+
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
 

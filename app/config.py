@@ -17,6 +17,7 @@ firebase_config = {
     "signInWithPasswordBaseURL": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
 }
 
+
 """ SendGrid configuration for sending emails."""
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 SENDER_EMAIL = "no-reply@girlcode.com"  # Must be a verified sender in SendGrid
