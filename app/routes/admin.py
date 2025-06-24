@@ -7,6 +7,11 @@ from typing import Optional
 from app.models.admin import ADMIN
 from app.models.shared import UserType
 
+from enum import Enum
+
+admin_router = APIRouter()
+db = firestore.client()  # Firestore client instance
+
 # from app.auth import get_current_user
 
 admin_router = APIRouter()
@@ -137,19 +142,11 @@ async def get_platform_stats():
         raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
 
-from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import JSONResponse
-from enum import Enum
-from typing import Optional
-from firebase_admin import firestore  # Assuming Firestore is used
-
-admin_router = APIRouter()
-db = firestore.client()  # Firestore client instance
-
 class UserType(str, Enum):
     ADMIN = "admin"
     EMPLOYER = "employer"
     CANDIDATE = "candidate"
+
 
 @admin_router.get("/all-users", tags=["Admin Management"])
 async def get_all_users(user_type: Optional[UserType] = Query(None, description="Filter by userType")):

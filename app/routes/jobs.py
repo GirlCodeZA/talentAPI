@@ -3,13 +3,15 @@ from fastapi import APIRouter, Body, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime, date
 from app.firebase import db
-from app.models.jobs import JobModel
+from app.models.jobs import JobModel, JobStatusUpdateSchema
 from typing import Optional
 
+from app.models.shared import StatusUpdateSchema
+from app.utils.status_helpers import update_profile_status_by_email
 
 router = APIRouter()
 
-@router.post("/jobs", tags=["Jobs"])
+@router.post("/jobs", tags=["Job Management"])
 async def create_job(
         job_data: JobModel = Body(...),
         request: Request = None  # Assuming request holds user session or token
@@ -47,7 +49,7 @@ async def create_job(
         )
 
 
-@router.put("/jobs/{job_id}", tags=["Jobs"])
+@router.put("/jobs/{job_id}", tags=["Job Management"])
 async def update_job(
         job_id: str,
         job_data: JobModel = Body(...),
@@ -90,7 +92,7 @@ async def update_job(
         )
 
 
-@router.get("/jobs", tags=["Jobs"])
+@router.get("/jobs", tags=["Job Management"])
 async def get_jobs(limit: int = 50, start_after: Optional[str] = None):
     try:
         jobs_ref = db.collection("jobs").order_by("created_at", direction="DESCENDING").limit(limit)
@@ -125,7 +127,7 @@ async def get_jobs(limit: int = 50, start_after: Optional[str] = None):
 
 
 
-@router.get("/jobs/{job_id}", tags=["Jobs"])
+@router.get("/jobs/{job_id}", tags=["Job Management"])
 async def get_job_by_id(job_id: str):
     try:
         doc_ref = db.collection("jobs").document(job_id)
@@ -158,7 +160,7 @@ async def get_job_by_id(job_id: str):
         )
 
 
-@router.get("/employer/jobs", tags=["Jobs"])
+@router.get("/employer/jobs", tags=["Job Management"])
 async def get_jobs_by_employer(employer_id: str):
     try:
         jobs_ref = db.collection("jobs").where("employer_id", "==", employer_id)
@@ -184,3 +186,20 @@ async def get_jobs_by_employer(employer_id: str):
             status_code=500,
             detail=f"Failed to retrieve jobs for employer: {str(e)}"
         )
+
+@router.put("/job/update-status", tags=["Job Management"])
+async def update_job_status(data: JobStatusUpdateSchema):
+    try:
+        ref = db.collection("jobs").document(data.job_id)
+        doc = ref.get()
+
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        ref.update({"status": data.status.value})
+        return {"message": f"Job status updated to '{data.status.value}' for ID {data.job_id}"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating job status: {str(e)}")

@@ -13,13 +13,14 @@ from app.utils.s3_helpers import generate_signed_url, upload_file_to_s3
 from app.settings import settings
 import boto3
 import io
+import os
 import httpx
 
 from botocore.config import Config
 
 from botocore.exceptions import NoCredentialsError
 
-from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile, Request
+from fastapi import APIRouter, HTTPException, Body, Query, File, UploadFile, Request,Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from firebase_admin import firestore
 from typing import Optional
@@ -716,6 +717,31 @@ def upload_cv_to_presigned_url(presigned_url: str, pdf_path: str):
         print(response.text)
 
 
+async def upload_cv_to_presigned_url(presigned_url: str, file_path: str):
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"CV file not found at {file_path}")
+
+    try:
+        with open(file_path, "rb") as f:
+            file_data = f.read()
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.put(
+                presigned_url,
+                headers={"Content-Type": "application/pdf"},
+                content=file_data
+            )
+
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=502,
+                detail=f"CV upload failed: {response.status_code} {response.text}"
+            )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during CV upload: {str(e)}")
+
+
 @candidate_router.post("/candidates/highwind-presigned-url")
 async def get_presigned_url(email_request: EmailRequest):
     candidate_data = fetch_candidate_by_email(email_request.email)
@@ -723,7 +749,7 @@ async def get_presigned_url(email_request: EmailRequest):
     if not candidate_data:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    candidate_id = candidate_data["id"]  # Document ID in Firestore
+    candidate_id = candidate_data["id"]
 
     headers = {
         "Accept": "application/json",
@@ -740,31 +766,36 @@ async def get_presigned_url(email_request: EmailRequest):
                 headers=headers,
                 json=candidate_data,
             )
+
         response.raise_for_status()
         result = response.json()
 
-        # Extract values to store
         presigned_url = result.get("presigned_url")
         candidate_uuid = result.get("candidate_uuid")
 
-        if presigned_url and candidate_uuid:
-            doc_ref = db.collection("candidate").document(candidate_id)
-            doc_ref.update({
-                "presigned_url": presigned_url,
-                "candidate_uuid": candidate_uuid
-            })
-        else:
-            raise HTTPException(status_code=502, detail="Missing expected keys in Highwind response")
+        if not (presigned_url and candidate_uuid):
+            raise HTTPException(status_code=502, detail="Missing presigned_url or candidate_uuid")
 
-        return result
+        # Update Firestore
+        db.collection("candidate").document(candidate_id).update({
+            "presigned_url": presigned_url,
+            "candidate_uuid": candidate_uuid
+        })
+
+        # Upload the CV from disk to S3
+        # cv_path = "@/Users/cedar/code/melio/talent-strategist/pr/talent-strategist-dev/doc/openapi/CV.pdf"
+        # await upload_cv_to_presigned_url(presigned_url, cv_path)
+
+        return {
+            "message": "Candidate submitted and CV uploaded successfully",
+            "candidate_uuid": candidate_uuid
+        }
 
     except httpx.ReadTimeout:
-        raise HTTPException(status_code=504, detail="Request to Highwind API timed out")
+        raise HTTPException(status_code=504, detail="Highwind API timed out")
 
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-
-
