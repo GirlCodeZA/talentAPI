@@ -682,6 +682,7 @@ def generate_resume(request: ResumeRequest):
         education=candidate.get('education', []),
         skills=candidate.get('skills', []),
         projects=candidate.get('projects', []),
+        awards=candidate.get('awards', []),
     )
 
     pdf_buffer = io.BytesIO()

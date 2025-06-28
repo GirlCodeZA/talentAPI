@@ -1,31 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>Resume</title>
     <style>
         body {
-            font-family: "Arial", sans-serif;
-            padding: 30px;
+            font-family: Arial, sans-serif;
+            padding: 40px;
             color: #1a1a1a;
+            max-width: 800px;
+            margin: auto;
         }
-        h1 { font-size: 24px; color: #e11d48; }
-        h2 { font-size: 18px; margin-top: 30px; color: #be123c; }
-        .section { margin-bottom: 25px; }
+        h1 {
+            font-size: 28px;
+            color: #e11d48;
+            margin-bottom: 10px;
+        }
+        h2 {
+            font-size: 20px;
+            color: #be123c;
+            margin-top: 30px;
+            border-bottom: 1px solid #fca5a5;
+            padding-bottom: 4px;
+        }
+        .section {
+            margin-top: 24px;
+        }
         .tag {
+            display: inline-block;
             background: #fce7f3;
             color: #be123c;
-            padding: 4px 8px;
-            border-radius: 12px;
-            margin-right: 6px;
+            padding: 5px 10px;
+            border-radius: 9999px;
             font-size: 12px;
-            display: inline-block;
+            margin: 4px 6px 4px 0;
+        }
+        .profile {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .profile img {
+            width: 100px;
+            height: 100px;
+            border-radius: 9999px;
+            object-fit: cover;
+            border: 2px solid #e11d48;
+        }
+        .info p {
+            margin: 4px 0;
+        }
+        a {
+            color: #1d4ed8;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .meta {
+            font-size: 14px;
+            color: #555;
         }
     </style>
 </head>
 <body>
-<h1>{{ name }}</h1>
-<p><strong>Email:</strong> {{ email }}</p>
-<p><strong>Role:</strong> {{ role }}</p>
+
+<div class="profile">
+    <div class="info">
+        <h1>{{ name }}</h1>
+        <p><strong>Email:</strong> {{ email }}</p>
+        <p><strong>Role:</strong> {{ role }}</p>
+        <p><strong>Location:</strong> {{ location }}</p>
+        <p><strong>Willing to relocate:</strong> {{ relocate }}</p>
+        <p><strong>Experience:</strong> {{ experienceLevel }}</p>
+        <p><strong>Job Type:</strong> {{ jobType }}</p>
+    </div>
+</div>
 
 <div class="section">
     <h2>About Me</h2>
@@ -35,7 +85,22 @@
 <div class="section">
     <h2>Education</h2>
     {% for edu in education %}
-    <p><strong>{{ edu.qualification }}</strong> at {{ edu.institution }} ({{ edu.startDate }} - {{ edu.endDate }})</p>
+    <p>
+        <strong>{{ edu.qualification }}</strong><br/>
+        {{ edu.institution }}<br/>
+        <span class="meta">{{ edu.startDate }} - {{ edu.endDate }}</span>
+    </p>
+    {% endfor %}
+</div>
+
+<div class="section">
+    <h2>Work Experience</h2>
+    {% for exp in workExperience %}
+    <p>
+        <strong>{{ exp.role }}</strong> — {{ exp.company }}<br/>
+        <span class="meta">{{ exp.startDate }} - {{ exp.endDate }}</span><br/>
+        {{ exp.description }}
+    </p>
     {% endfor %}
 </div>
 
@@ -49,10 +114,25 @@
 <div class="section">
     <h2>Projects</h2>
     {% for proj in projects %}
-    <p><strong>{{ proj.title }}</strong><br/>
+    <p>
+        <strong>{{ proj.title }}</strong><br/>
         <a href="{{ proj.github }}">{{ proj.github }}</a><br/>
-        {{ proj.description }}</p>
+        {{ proj.description }}
+    </p>
     {% endfor %}
 </div>
+
+<div class="section">
+    <h2>Awards</h2>
+    {% for award in awards %}
+    <p>
+        <strong>{{ award.title }}</strong> <span class="meta">({{ award.date }})</span><br/>
+        {{ award.description }}
+    </p>
+    {% else %}
+    <p>No awards yet</p>
+    {% endfor %}
+</div>
+
 </body>
 </html>
