@@ -16,5 +16,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         extra = "forbid"
+        populate_by_name = True
 
 settings = Settings()

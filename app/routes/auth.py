@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request, Body, status
 from fastapi.responses import JSONResponse
+
 from firebase_admin import auth
 
 from sendgrid import SendGridAPIClient
@@ -114,7 +115,7 @@ async def login(user_data: LoginSchema = Body(...)):
         token = user['idToken']
 
         user_type = None
-        for utype in ["candidate", "employer","admin"]:
+        for utype in ["candidate", "employer", "admin"]:
             if utype == "candidate":
                 docs = list(db.collection(utype).where("basicInfo.email", "==", user_data.email).stream())
             else:
@@ -122,6 +123,12 @@ async def login(user_data: LoginSchema = Body(...)):
 
             if docs:
                 user_type = utype
+
+                if utype == "candidate":
+                    candidate_data = docs[0].to_dict()
+                    if candidate_data.get("status", "").lower() == "deleted":
+                        raise HTTPException(status_code=403, detail="Candidate account is deleted.")
+
                 break
 
         if not user_type:
@@ -131,10 +138,13 @@ async def login(user_data: LoginSchema = Body(...)):
             content={
                 "token": token,
                 "userType": user_type,
-                "redirect": f"{user_type.capitalize()}/Dashboard"
+                "redirect": f"{user_type.capitalize()}Dashboard"
             },
             status_code=200
         )
+
+    except HTTPException as e:
+        raise e
 
     except Exception as e:
         await log_error("Login failed", {

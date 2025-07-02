@@ -8,12 +8,12 @@ from app.models.matched import MatchedJob
 from app.models.models import ProgressModel, ProgressStep, BasicInformation, Education, JobPreference, WorkExperience, \
     Projects, Awards, Account, ResumeRequest, EmailRequest
 from app.models.shared import ProfileStatus, StatusUpdateSchema
+from app.utils.build_resume_pdf import build_resume_pdf
 from app.utils.candidate_helpers import fetch_candidate_by_email
 from app.utils.s3_helpers import generate_signed_url, upload_file_to_s3
 from app.settings import settings
 import boto3
 import io
-import os
 import httpx
 
 from botocore.config import Config
@@ -673,21 +673,7 @@ def generate_resume(request: ResumeRequest):
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    template = env.get_template("resume_template.html")
-    html_content = template.render(
-        name=f"{candidate['basicInfo'].get('firstName', '')} {candidate['basicInfo'].get('lastName', '')}",
-        email=candidate['basicInfo'].get('email', ''),
-        role=candidate['basicInfo'].get('role', ''),
-        description=candidate['basicInfo'].get('description', ''),
-        education=candidate.get('education', []),
-        skills=candidate.get('skills', []),
-        projects=candidate.get('projects', []),
-        awards=candidate.get('awards', []),
-    )
-
-    pdf_buffer = io.BytesIO()
-    HTML(string=html_content).write_pdf(pdf_buffer)
-    pdf_buffer.seek(0)
+    pdf_buffer = build_resume_pdf(candidate)
 
     return StreamingResponse(
         pdf_buffer,
@@ -695,58 +681,16 @@ def generate_resume(request: ResumeRequest):
         headers={"Content-Disposition": "attachment; filename=resume.pdf"}
     )
 
+
 @candidate_router.put("/update-status", tags=["Candidate Management"])
 async def update_candidate_status(data: StatusUpdateSchema):
     message = await update_profile_status_by_email("candidate", data.email, data.status)
     return {"message": message}
 
 
-def upload_cv_to_presigned_url(presigned_url: str, pdf_path: str):
-    headers = {
-        "Content-Type": "application/pdf"
-    }
-
-    with open(pdf_path, "rb") as f:
-        data = f.read()
-
-    response = httpx.put(presigned_url, headers=headers, content=data)
-
-    if response.status_code == 200:
-        print("CV uploaded successfully.")
-    else:
-        print(f"Failed to upload CV. Status: {response.status_code}")
-        print(response.text)
-
-
-async def upload_cv_to_presigned_url(presigned_url: str, file_path: str):
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail=f"CV file not found at {file_path}")
-
-    try:
-        with open(file_path, "rb") as f:
-            file_data = f.read()
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.put(
-                presigned_url,
-                headers={"Content-Type": "application/pdf"},
-                content=file_data
-            )
-
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=502,
-                detail=f"CV upload failed: {response.status_code} {response.text}"
-            )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during CV upload: {str(e)}")
-
-
 @candidate_router.post("/candidates/highwind-presigned-url")
 async def get_presigned_url(email_request: EmailRequest):
     candidate_data = fetch_candidate_by_email(email_request.email)
-
     if not candidate_data:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
@@ -759,13 +703,12 @@ async def get_presigned_url(email_request: EmailRequest):
     }
 
     timeout = httpx.Timeout(20.0)
-
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
                 settings.highwind_api_url,
                 headers=headers,
-                json=candidate_data,
+                json={},
             )
 
         response.raise_for_status()
@@ -777,15 +720,28 @@ async def get_presigned_url(email_request: EmailRequest):
         if not (presigned_url and candidate_uuid):
             raise HTTPException(status_code=502, detail="Missing presigned_url or candidate_uuid")
 
-        # Update Firestore
+        #Generate resume PDF in memory
+        pdf_buffer = build_resume_pdf(candidate_data)
+
+        #Upload resume PDF to presigned URL
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            upload_response = await client.put(
+                presigned_url,
+                headers={"Content-Type": "application/pdf"},
+                content=pdf_buffer.read()
+            )
+
+        if upload_response.status_code != 200:
+            raise HTTPException(
+                status_code=502,
+                detail=f"CV upload failed: {upload_response.status_code} {upload_response.text}"
+            )
+
+        # 4. Update Firestore
         db.collection("candidate").document(candidate_id).update({
             "presigned_url": presigned_url,
             "candidate_uuid": candidate_uuid
         })
-
-        # Upload the CV from disk to S3
-        # cv_path = "@/Users/cedar/code/melio/talent-strategist/pr/talent-strategist-dev/doc/openapi/CV.pdf"
-        # await upload_cv_to_presigned_url(presigned_url, cv_path)
 
         return {
             "message": "Candidate submitted and CV uploaded successfully",
@@ -800,3 +756,4 @@ async def get_presigned_url(email_request: EmailRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
