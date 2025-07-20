@@ -11,6 +11,9 @@ from sendgrid.helpers.mail import Mail
 from jinja2 import Environment, FileSystemLoader
 import logging
 
+import hashlib
+
+
 from app.settings import settings
 
 from app.models.models import SignUpSchema, ProgressModel, LoginSchema, ProfileStatus, UserType, ForgotPasswordRequest
@@ -36,9 +39,14 @@ env = Environment(loader=FileSystemLoader("app/templates"))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+import hashlib
+
+import hashlib
+
 @router.post("/signup", tags=["Auth"])
 async def create_an_account(user_data: SignUpSchema = Body(...)):
     try:
+        # Check if user already exists in Firebase Auth
         try:
             auth.get_user_by_email(user_data.email)
             raise HTTPException(
@@ -48,18 +56,22 @@ async def create_an_account(user_data: SignUpSchema = Body(...)):
         except auth.UserNotFoundError:
             pass
 
+        # Create the Firebase Auth user (optional, can be kept for email verification)
         user = auth.create_user(
             email=user_data.email,
             password=user_data.password
         )
 
         created_at = datetime.utcnow().isoformat()
+        password_hash = hashlib.sha256(user_data.password.encode()).hexdigest()
 
+        # Store Firestore data (including password hash for login)
         data_to_store = {
             "uid": user.uid,
             "status": ProfileStatus.PENDING,
             "createdAt": created_at,
             "userType": user_data.userType,
+            "passwordHash": password_hash,  # new field for Firestore login
         }
 
         if user_data.userType == UserType.CANDIDATE:
@@ -83,7 +95,6 @@ async def create_an_account(user_data: SignUpSchema = Body(...)):
                 "companyName": user_data.companyName
             })
             collection = "employer"
-
         else:
             raise HTTPException(status_code=400, detail="Invalid user type")
 
@@ -112,38 +123,53 @@ async def create_an_account(user_data: SignUpSchema = Body(...)):
         )
 
 
+import hashlib
+from fastapi import Body, HTTPException, status
+from fastapi.responses import JSONResponse
+
 @router.post("/login", tags=["Auth"])
 async def login(user_data: LoginSchema = Body(...)):
     try:
-        user = firebase.auth().sign_in_with_email_and_password(
-            user_data.email,
-            user_data.password
-        )
-        token = user['idToken']
-
+        user_doc = None
         user_type = None
-        for utype in ["candidate", "employer", "admin"]:
-            if utype == "candidate":
-                docs = list(db.collection(utype).where("basicInfo.email", "==", user_data.email).stream())
-            else:
-                docs = list(db.collection(utype).where("email", "==", user_data.email).stream())
+        user_id = None
 
+        # Step 1: Find user in any collection
+        for utype in ["candidate", "employer", "admin"]:
+            field = "basicInfo.email" if utype == "candidate" else "email"
+            docs = list(db.collection(utype).where(field, "==", user_data.email).stream())
             if docs:
+                user_doc = docs[0].to_dict()
+                user_id = docs[0].id
                 user_type = utype
 
-                if utype == "candidate":
-                    candidate_data = docs[0].to_dict()
-                    if candidate_data.get("status", "").lower() == "deleted":
-                        raise HTTPException(status_code=403, detail="Candidate account is deleted.")
-
+                if utype == "candidate" and user_doc.get("status", "").lower() == "deleted":
+                    raise HTTPException(status_code=403, detail="Candidate account is deleted.")
                 break
 
-        if not user_type:
-            raise HTTPException(status_code=404, detail="User type not found.")
+        if not user_doc:
+            raise HTTPException(status_code=404, detail="User not found.")
 
+        # Step 2: Validate password
+        hashed_input = hashlib.sha256(user_data.password.encode()).hexdigest()
+        stored_hash = user_doc.get("passwordHash")
+
+        # If user doesn't have a password hash (old accounts), try to match raw password
+        if not stored_hash:
+            if user_doc.get("password") != user_data.password:
+                raise HTTPException(status_code=401, detail="Invalid password.")
+            else:
+                # Auto-upgrade old account by storing hash
+                db.collection(user_type).document(user_id).update({"passwordHash": hashed_input})
+        else:
+            # Compare hash for new users
+            if stored_hash != hashed_input:
+                raise HTTPException(status_code=401, detail="Invalid password.")
+
+        # Step 3: Return success response (no Firebase token anymore)
         return JSONResponse(
             content={
-                "token": token,
+                "message": "Login successful",
                 "userType": user_type,
                 "redirect": f"{user_type.capitalize()}Dashboard"
             },
@@ -160,9 +186,10 @@ async def login(user_data: LoginSchema = Body(...)):
             "endpoint": "/login"
         })
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Login failed: {str(e)}"
         )
+
 
 
 @router.post("/send-verification-email", tags=["Auth"])
