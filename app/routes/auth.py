@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Request, Body, status
+from fastapi import APIRouter, HTTPException, Request, Body, status, Query
 from fastapi.responses import JSONResponse
 
 from firebase_admin import auth
@@ -8,9 +8,10 @@ from firebase_admin import auth
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
-from app.settings import settings
+from jinja2 import Environment, FileSystemLoader
+import logging
 
-from app.config import SENDGRID_API_KEY, SENDER_EMAIL  # your config setup
+from app.settings import settings
 
 from app.models.models import SignUpSchema, ProgressModel, LoginSchema, ProfileStatus, UserType, ForgotPasswordRequest
 from app.utils.logger import log_error
@@ -28,6 +29,12 @@ GITHUB_USER_API = "https://api.github.com/user"
 GITHUB_EMAILS_API = "https://api.github.com/user/emails"
 
 router = APIRouter()
+
+# Jinja2 environment (HTML templates live in app/templates)
+env = Environment(loader=FileSystemLoader("app/templates"))
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @router.post("/signup", tags=["Auth"])
 async def create_an_account(user_data: SignUpSchema = Body(...)):
@@ -316,44 +323,4 @@ async def github_login(accessToken: str = Body(..., embed=True)):
     except Exception as e:
         print("GitHub login error:", e)
         raise HTTPException(status_code=401, detail="GitHub login failed.")
-
-
-@router.post("/forgot-password", tags=["Auth"])
-async def forgot_password(request: ForgotPasswordRequest):
-    print("SENDGRID_API_KEY =", repr(settings.sendgrid_api_key))
-
-    try:
-        # Generate reset link
-        reset_link = auth.generate_password_reset_link(request.email)
-
-        # Compose email
-        message = Mail(
-            from_email=settings.sender_email,
-            to_emails=request.email,
-            subject="Reset Your Password",
-            html_content=f"""
-                <p>Hello,</p>
-                <p>You requested a password reset. Click the link below to reset your password:</p>
-                <a href="{reset_link}">Reset Password</a>
-                <p>If you did not request this, please ignore this email.</p>
-            """
-        )
-
-        # Send email
-        sg = SendGridAPIClient(settings.sendgrid_api_key)
-        sg.send(message)
-
-        return {"message": "Password reset email sent successfully"}
-
-    except auth.UserNotFoundError:
-        raise HTTPException(status_code=404, detail="User not found")
-    except auth.ResetPasswordExceedLimitError:
-        raise HTTPException(
-            status_code=429,
-            detail="Too many password reset requests. Please try again later."
-        )
-    except Exception as e:
-        print("Forgot password error:", repr(e))
-        raise HTTPException(status_code=500, detail="Failed to send password reset email")
-
 

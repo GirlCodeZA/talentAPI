@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     aws_region: str
 
     sendgrid_api_key: str = Field(..., alias="SENDGRID_API_KEY")
-    sender_email: str = Field("no-reply@girlcode.com", alias="SENDER_EMAIL")
+    sender_email: str = Field("nsovom@girlcode.com", alias="SENDER_EMAIL")
 
     highwind_api_url: str = Field(..., alias="HIGHWIND_API_URL")
     highwind_api_key: str = Field(..., alias="HIGHWIND_API_KEY")
