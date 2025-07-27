@@ -15,6 +15,7 @@ from firebase_admin._auth_utils import ResetPasswordExceedLimitError
 from app.settings import settings
 from app.config import SENDGRID_API_KEY
 from app.models.models import ForgotPasswordRequest
+from app.utils.chat_helpers import save_message
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,13 +42,16 @@ def render_email_template(name: str, username: str, password: str) -> str:
 
 @mail_router.post("/send-welcome-email/", tags=["Mail Management"])
 async def send_welcome_email(user: User):
-    print("SENDGRID_API_KEY:", SENDGRID_API_KEY)
-
-    # Render HTML email using Jinja2
     email_html = render_email_template(user.name, user.username, user.password)
 
+    await save_message(
+            sender="nsovom@girlcode.co.za",
+            receiver=user.email,
+            content=f"Welcome email sent to {user.name} ({user.email})"
+        )
+
     message = Mail(
-        from_email='nsovom@girlcode.co.za',  # must be verified in SendGrid
+        from_email='nsovom@girlcode.co.za',
         to_emails=user.email,
         subject='Welcome to Our Platform!',
         html_content=email_html
@@ -85,9 +89,13 @@ def render_sign_up_welcome_template(name: str) -> str:
 
 @mail_router.post("/send-sign-up-welcome-email/", tags=["Mail Management"])
 async def send_sign_up_welcome_email(email: EmailStr, name: str):
-    print("SENDGRID_API_KEY:", SENDGRID_API_KEY)
 
     email_html = render_sign_up_welcome_template(name)
+    await save_message(
+        sender="nsovom@girlcode.co.za",
+        receiver=email,
+        content=email_html
+    )
 
     message = Mail(
         from_email='nsovom@girlcode.co.za',

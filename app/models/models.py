@@ -8,6 +8,10 @@ from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationInfo
 from typing import Optional, Dict, List
 from enum import Enum
 
+from datetime import datetime
+import uuid
+
+
 from app.models.shared import UserType, ProfileStatus
 
 
@@ -194,3 +198,15 @@ class ResumeRequest(BaseModel):
 
 class EmailRequest(BaseModel):
     email: EmailStr
+
+
+class Message(BaseModel):
+    id: str = str(uuid.uuid4())
+    name: str
+    sender: str   # email or user ID of sender
+    receiver: str # email or user ID of receiver
+    content: str
+    timestamp: datetime = datetime.utcnow()
+    isRead: bool = False
+    sendName: Optional[str] = None
+    senderUserType: Optional[UserType] = UserType.ADMIN
