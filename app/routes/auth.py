@@ -39,9 +39,6 @@ env = Environment(loader=FileSystemLoader("app/templates"))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-import hashlib
-
-import hashlib
 
 @router.post("/signup", tags=["Auth"])
 async def create_an_account(user_data: SignUpSchema = Body(...)):
@@ -95,6 +92,15 @@ async def create_an_account(user_data: SignUpSchema = Body(...)):
                 "companyName": user_data.companyName
             })
             collection = "employer"
+        elif user_data.userType == UserType.ADMIN:
+            data_to_store.update({
+                "firstName": user_data.firstName,
+                "lastName": user_data.lastName,
+                "email": user_data.email,
+                "contactNumber": user_data.contactNumber,
+                "companyName": user_data.companyName
+            })
+            collection = "admin"
         else:
             raise HTTPException(status_code=400, detail="Invalid user type")
 

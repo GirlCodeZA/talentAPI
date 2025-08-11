@@ -40,7 +40,7 @@ class JobPost(BaseModel):
     skills: Optional[List[str]] = []
 
 
-@employer_router.put("/update-company-info", tags=["Employer Management"])
+@employer_router.put("/update-company-info", tags=["Employer"])
 async def update_company_info(data: EmployerProfile):
     try:
         ref = db.collection("employer")
@@ -58,7 +58,7 @@ async def update_company_info(data: EmployerProfile):
         raise HTTPException(status_code=500, detail=f"Failed to update company info: {str(e)}")
 
 
-@employer_router.get("/get-company-info", tags=["Employer Management"])
+@employer_router.get("/get-company-info", tags=["Employer"])
 async def get_company_info(email: str = Query(...)):
     try:
         logger.info(f"Fetching employer with email: {email}")
@@ -83,7 +83,7 @@ async def get_company_info(email: str = Query(...)):
         raise HTTPException(status_code=500, detail=f"Error retrieving company info: {str(e)}")
 
 
-@employer_router.post("/upload-logo", tags=["Employer Management"])
+@employer_router.post("/upload-logo", tags=["Employer"])
 async def upload_logo(email: str = Query(...), file: UploadFile = File(...)):
     try:
         file_url = upload_file_to_s3(file, folder="company-logos")
@@ -105,7 +105,7 @@ async def upload_logo(email: str = Query(...), file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@employer_router.post("/post-job", tags=["Employer Management"])
+@employer_router.post("/post-job", tags=["Employer"])
 async def post_job(email: str = Query(...), job: JobPost = Body(...)):
     try:
         ref = db.collection("employer")
@@ -124,59 +124,38 @@ async def post_job(email: str = Query(...), job: JobPost = Body(...)):
         raise HTTPException(status_code=500, detail=f"Failed to post job: {str(e)}")
 
 
-@employer_router.get("/jobs", tags=["Employer Management"])
-async def list_jobs(email: str = Query(...), jobType: Optional[str] = None, location: Optional[str] = None):
+@employer_router.get("/jobs", tags=["Employer"])
+async def list_jobs(
+        email: str = Query(..., description="Employer's email"),
+        employer_id: str  = Query(..., description="Employer's email"),
+        jobType: Optional[str] = Query(None),
+        location: Optional[str] = Query(None)
+):
     try:
         ref = db.collection("employer")
-        query = ref.where("email", "==", email).stream()
-        docs = [doc for doc in query]
+        query = ref.where("email", "==", email.lower()).stream()
+        docs = list(query)
 
         if not docs:
             raise HTTPException(status_code=404, detail="Employer not found")
 
-        employer_id = docs[0].id
+        # employer_id = docs[0].id
         jobs_ref = db.collection("employer").document(employer_id).collection("jobs")
         jobs_query = jobs_ref.stream()
 
         jobs = []
         for doc in jobs_query:
             job = doc.to_dict()
-            if (not jobType or job["jobType"] == jobType) and (not location or job["location"] == location):
+            if (not jobType or job.get("jobType") == jobType) and (not location or job.get("location") == location):
                 jobs.append({"id": doc.id, **job})
 
-        return jobs
+        return JSONResponse(content=jobs)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving jobs: {str(e)}")
 
 
-@employer_router.put("/update-employer-profile", tags=["Employer Management"])
-async def update_employer_profile(
-        email: str = Query(..., example="company@gmail.com"),
-        profile_data: EmployerProfile = Body(...)
-):
-    try:
-        employers_ref = db.collection("employer")
-        query = employers_ref.where("email", "==", email).stream()
-
-        employer_docs = [doc for doc in query]
-        if not employer_docs:
-            raise HTTPException(status_code=404, detail="Employer not found")
-
-        employer_doc = employer_docs[0]
-        employer_ref = employers_ref.document(employer_doc.id)
-
-        employer_ref.update(profile_data.dict(exclude_unset=True))
-
-        return JSONResponse(
-            content={"message": "Employer profile updated successfully."},
-            status_code=200
-        )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating employer profile: {str(e)}")
-
-
-@employer_router.get("/get-all-employers", tags=["Employer Management"])
+@employer_router.get("/get-all-employers", tags=["Employer"])
 async def get_all_employers():
     try:
         employers_ref = db.collection("employer")
@@ -197,7 +176,7 @@ async def get_all_employers():
         raise HTTPException(status_code=500, detail="Failed to fetch employers")
 
 
-@employer_router.post("/update-picture", tags=["Employer Management"])
+@employer_router.post("/update-picture", tags=["Employer"])
 async def upload_image(
         email: str = Query(...),
         file: UploadFile = File(...)
@@ -231,7 +210,28 @@ async def upload_image(
         return {"error": str(e)}
 
 
-@employer_router.put("/update-status", tags=["Employer Management"])
+@employer_router.put("/update-status", tags=["Employer"])
 async def update_employer_status(data: StatusUpdateSchema):
     message = await update_profile_status_by_email("employer", data.email, data.status)
     return {"message": message}
+
+
+@employer_router.get("/get-employer-uid", tags=["Employer"])
+async def get_employer_uid(email: str = Query(...)):
+    try:
+        ref = db.collection("employer")
+        query = ref.where("email", "==", email.lower()).stream()
+
+        docs = list(query)
+
+        if not docs:
+            raise HTTPException(status_code=404, detail="Employer not found")
+
+        uid = docs[0].to_dict().get("uid")
+        company_name = docs[0].to_dict().get("companyName")
+        if not uid:
+            raise HTTPException(status_code=404, detail="UID not found for this employer")
+
+        return JSONResponse(content={"uid": uid, "companyName" : company_name})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch UID: {str(e)}")

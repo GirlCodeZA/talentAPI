@@ -40,7 +40,7 @@ def render_email_template(name: str, username: str, password: str) -> str:
         password=password
     )
 
-@mail_router.post("/send-welcome-email/", tags=["Mail Management"])
+@mail_router.post("/send-welcome-email/", tags=["Mail"])
 async def send_welcome_email(user: User):
     email_html = render_email_template(user.name, user.username, user.password)
 
@@ -87,7 +87,7 @@ def render_sign_up_welcome_template(name: str) -> str:
         name=name,
     )
 
-@mail_router.post("/send-sign-up-welcome-email/", tags=["Mail Management"])
+@mail_router.post("/send-sign-up-welcome-email/", tags=["Mail"])
 async def send_sign_up_welcome_email(email: EmailStr, name: str):
 
     email_html = render_sign_up_welcome_template(name)
@@ -127,7 +127,7 @@ def render_reset_password_template(reset_link: str, recipient_name: str = "User"
         reset_link=reset_link
     )
 
-@mail_router.post("/forgot-password", tags=["Mail Management"])
+@mail_router.post("/forgot-password", tags=["Mail"])
 async def forgot_password(request: ForgotPasswordRequest = Body(...)):
     logger.info(f"Password reset requested for: {request.email}")
 

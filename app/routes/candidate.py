@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import List
 
@@ -13,7 +12,6 @@ from app.utils.candidate_helpers import fetch_candidate_by_email
 from app.utils.s3_helpers import generate_signed_url, upload_file_to_s3
 from app.settings import settings
 import boto3
-import io
 import httpx
 
 from botocore.config import Config
@@ -52,7 +50,7 @@ s3_client = boto3.client(
 db = firestore.client()
 candidate_router = APIRouter()
 
-@candidate_router.get("/candidate", tags=["Candidate Management"])
+@candidate_router.get("/candidate", tags=["Candidate"])
 async def get_candidate_by_email(email: str = Query(...)):
     try:
         candidates_ref = db.collection("candidate")
@@ -97,7 +95,48 @@ async def get_candidate_by_email(email: str = Query(...)):
             detail=f"Error fetching candidate: {str(e)}"
         )
 
-@candidate_router.put("/status", tags=["Candidate Management"])
+
+@candidate_router.get("/candidate-by-id", tags=["Candidate"])
+async def get_candidate_by_id(candidate_id: str = Query(...)):
+    try:
+        doc_ref = db.collection("candidate").document(candidate_id)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        candidate = doc.to_dict()
+
+        default_steps = ProgressModel.default_steps()
+        progress_steps_data = candidate.get("progressSteps", {})
+
+        sorted_progress_steps = {
+            step: ProgressStep(**progress_steps_data.get(step, default_steps[step])).dict()
+            for step in default_steps
+        }
+
+        file_key = candidate.get("profilePicture")
+        if file_key:
+            candidate["profilePictureSignedUrl"] = generate_signed_url(file_key)
+
+        response = {
+            "id": doc.id,
+            **candidate,
+            "progressSteps": sorted_progress_steps
+        }
+
+        return JSONResponse(content=response, status_code=200)
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching candidate by ID: {str(e)}"
+        )
+
+
+@candidate_router.put("/status", tags=["Candidate"])
 async def update_candidate_status(data: StatusUpdateSchema):
     try:
         candidates_ref = db.collection("candidate")
@@ -121,7 +160,7 @@ async def update_candidate_status(data: StatusUpdateSchema):
         print("Error updating candidate status:", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@candidate_router.post("/update-picture", tags=["Candidate Management"])
+@candidate_router.post("/update-picture", tags=["Candidate"])
 async def upload_image(
         email: str = Query(...),
         file: UploadFile = File(...)
@@ -158,7 +197,7 @@ async def upload_image(
         return {"error": str(e)}
 
 
-@candidate_router.post("/upload-file", tags=["Candidate Management"])
+@candidate_router.post("/upload-file", tags=["Candidate"])
 async def upload_education_file(
         email: str = Query(...),
         index: int = Query(...),  # index of the education entry to update
@@ -219,7 +258,7 @@ async def upload_education_file(
 
 
 
-@candidate_router.put("/save-progress", tags=["Candidate Management"])
+@candidate_router.put("/save-progress", tags=["Candidate"])
 async def save_progress(
         email: str = Query(..., example="user@example.com"),
         progress_data: ProgressModel = Body(...)
@@ -279,13 +318,13 @@ async def save_progress(
         ) from e
 
 
-@candidate_router.get("/list-candidates", tags=["Candidate Management"])
+@candidate_router.get("/list-candidates", tags=["Candidate"])
 async def list_candidates():
     candidates = db.collection("candidate").stream()
     return [{"id": doc.id, **doc.to_dict()} for doc in candidates]
 
 
-@candidate_router.put("/update-basic-info", tags=["Candidate Management"])
+@candidate_router.put("/update-basic-info", tags=["Candidate"])
 async def update_basic_information(basic_info: BasicInformation = Body(...)):
     """
     Updates the 'basicInfo' field for a candidate in Firestore by email.
@@ -324,7 +363,7 @@ async def update_basic_information(basic_info: BasicInformation = Body(...)):
         )
 
 
-@candidate_router.put("/education", tags=["Candidate Management"])
+@candidate_router.put("/education", tags=["Candidate"])
 async def update_education(
         email: str = Query(..., example="user@example.com"),
         educationList: List[Education] = []
@@ -365,7 +404,7 @@ async def update_education(
         ) from e
 
 
-@candidate_router.put("/job-preference", tags=["Candidate Management"])
+@candidate_router.put("/job-preference", tags=["Candidate"])
 async def update_job_preferences(
         email: str = Query(..., example="user@example.com"),
         jobPreferences: List[JobPreference] = []
@@ -406,7 +445,7 @@ async def update_job_preferences(
         ) from e
 
 
-@candidate_router.put("/work-experience", tags=["Candidate Management"])
+@candidate_router.put("/work-experience", tags=["Candidate"])
 async def update_work_experience(
         email: str = Query(..., example="user@example.com"),
         workExperienceList: List[WorkExperience] = Body(...)
@@ -442,7 +481,7 @@ async def update_work_experience(
         )
 
 
-@candidate_router.put("/skills", tags=["Candidate Management"])
+@candidate_router.put("/skills", tags=["Candidate"])
 async def update_skills(
         email: str = Query(..., example="user@example.com"),
         skills: List[str] = Body(...)
@@ -471,7 +510,7 @@ async def update_skills(
         )
 
 
-@candidate_router.put("/projects", tags=["Candidate Management"])
+@candidate_router.put("/projects", tags=["Candidate"])
 async def update_projects(
         email: str = Query(..., example="user@example.com"),
         projects: List[Projects] = Body(...)
@@ -515,7 +554,7 @@ async def update_projects(
         ) from e
 
 
-@candidate_router.put("/awards", tags=["Candidate Management"])
+@candidate_router.put("/awards", tags=["Candidate"])
 async def update_awards(
         email: str = Query(..., example="user@example.com"),
         awards: List[Awards] = Body(...)
@@ -559,7 +598,7 @@ async def update_awards(
         ) from e
 
 
-@candidate_router.put("/awards", tags=["Candidate Management"])
+@candidate_router.put("/awards", tags=["Candidate"])
 async def update_awards(
         email: str = Query(..., example="user@example.com"),
         awards: List[Awards] = Body(...)
@@ -603,7 +642,7 @@ async def update_awards(
         ) from e
 
 
-@candidate_router.put("/account-settings", tags=["Candidate Management"])
+@candidate_router.put("/account-settings", tags=["Candidate"])
 async def update_account_settings(
         email: str = Query(...),
         account: Account = Body(...)
@@ -635,7 +674,7 @@ async def update_account_settings(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@candidate_router.put("/account-settings", tags=["Candidate Management"])
+@candidate_router.put("/account-settings", tags=["Candidate"])
 def match_candidates_to_job(job: JobModel, employer: EmployerProfile, candidate_list: list[dict]) -> list[MatchedJob]:
     matched_candidates = []
 
@@ -682,7 +721,7 @@ def generate_resume(request: ResumeRequest):
     )
 
 
-@candidate_router.put("/update-status", tags=["Candidate Management"])
+@candidate_router.put("/update-status", tags=["Candidate"])
 async def update_candidate_status(data: StatusUpdateSchema):
     message = await update_profile_status_by_email("candidate", data.email, data.status)
     return {"message": message}
@@ -703,10 +742,12 @@ async def get_presigned_url(email_request: EmailRequest):
     }
 
     timeout = httpx.Timeout(20.0)
+
+    query_url = f"{settings.highwind_api_url}/candidates/presigned-url"
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
-                settings.highwind_api_url,
+                query_url,
                 headers=headers,
                 json={},
             )

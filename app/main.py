@@ -12,6 +12,7 @@ from app.routes.mail import mail_router
 from app.routes.jobs import router as job_router
 from app.routes.matched import router as matched_job_router
 from app.routes.mesage import chat_router
+from app.routes.careerCoach import career_coach_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -49,11 +50,12 @@ app.include_router(auth_router)
 # app.include_router(candidate_router)
 app.include_router(job_router)
 app.include_router(matched_job_router)
-app.include_router(candidate_router, prefix="/candidate", tags=["Candidate Management"])
-app.include_router(employer_router, prefix="/employer", tags=["Employer Management"])
-app.include_router(admin_router, prefix="/admin", tags=["Admin Management"])
-app.include_router(mail_router, prefix="/mail", tags=["Mail Management"])
+app.include_router(candidate_router, prefix="/candidate", tags=["Candidate"])
+app.include_router(employer_router, prefix="/employer", tags=["Employer"])
+app.include_router(admin_router, prefix="/admin", tags=["Admin"])
+app.include_router(mail_router, prefix="/mail", tags=["Mail"])
 app.include_router(chat_router, prefix="/chat", tags=["Chat"])
+app.include_router(career_coach_router, prefix="/Coach", tags=["Career Coach"])
 
 
 

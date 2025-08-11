@@ -11,30 +11,30 @@ from app.utils.status_helpers import update_profile_status_by_email
 
 router = APIRouter()
 
-@router.post("/jobs", tags=["Job Management"])
+@router.post("/jobs", tags=["Job"])
 async def create_job(
         job_data: JobModel = Body(...),
-        request: Request = None  # Assuming request holds user session or token
+        request: Request = None
 ):
     try:
-        # Example of getting the employer UID from headers (customize for your auth)
-        employer_uid = request.headers.get("X-User-Uid")  # Or from token/session
+        employer_uid = request.headers.get("X-User-Uid")
         if not employer_uid:
             raise HTTPException(status_code=401, detail="Employer UID missing")
 
         doc_ref = db.collection("jobs").document()
-        job_dict = job_data.dict()
+        job_dict = job_data.dict(by_alias=True)
 
-        # Override employer_id from auth instead of trusting client data
         job_dict["employer_id"] = employer_uid
         job_dict["job_id"] = doc_ref.id
 
         if isinstance(job_dict.get("application_close_date"), date):
             job_dict["application_close_date"] = datetime.combine(
                 job_dict["application_close_date"], datetime.min.time()
-            )
+            ).isoformat()
 
-        job_dict["created_at"] = datetime.utcnow().isoformat()
+        now = datetime.utcnow().isoformat()
+        job_dict["created_at"] = now
+        job_dict["updated_at"] = now
 
         doc_ref.set(job_dict)
 
@@ -49,7 +49,8 @@ async def create_job(
         )
 
 
-@router.put("/jobs/{job_id}", tags=["Job Management"])
+
+@router.put("/jobs/{job_id}", tags=["Job"])
 async def update_job(
         job_id: str,
         job_data: JobModel = Body(...),
@@ -92,7 +93,7 @@ async def update_job(
         )
 
 
-@router.get("/jobs", tags=["Job Management"])
+@router.get("/jobs", tags=["Job"])
 async def get_jobs(limit: int = 50, start_after: Optional[str] = None):
     try:
         jobs_ref = db.collection("jobs").order_by("created_at", direction="DESCENDING").limit(limit)
@@ -127,7 +128,7 @@ async def get_jobs(limit: int = 50, start_after: Optional[str] = None):
 
 
 
-@router.get("/jobs/{job_id}", tags=["Job Management"])
+@router.get("/jobs/{job_id}", tags=["Job"])
 async def get_job_by_id(job_id: str):
     try:
         doc_ref = db.collection("jobs").document(job_id)
@@ -160,7 +161,7 @@ async def get_job_by_id(job_id: str):
         )
 
 
-@router.get("/employer/jobs", tags=["Job Management"])
+@router.get("/employer/jobs", tags=["Job"])
 async def get_jobs_by_employer(employer_id: str):
     try:
         jobs_ref = db.collection("jobs").where("employer_id", "==", employer_id)
@@ -187,7 +188,7 @@ async def get_jobs_by_employer(employer_id: str):
             detail=f"Failed to retrieve jobs for employer: {str(e)}"
         )
 
-@router.put("/job/update-status", tags=["Job Management"])
+@router.put("/job/update-status", tags=["Job"])
 async def update_job_status(data: JobStatusUpdateSchema):
     try:
         ref = db.collection("jobs").document(data.job_id)
