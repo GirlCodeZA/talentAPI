@@ -19,6 +19,14 @@ Talent is a job marketplace for women developers, connecting them with new oppor
 git clone git@github.com:GirlCodeZA/talentAPI.git
 cd talentBackEnd
 ```
+
+``` confit set up
+ # Follow guide - some kind of confluence to set env and service key
+ touch .env
+ touch serviceAccountKey.json
+  
+ ```
+
 ### Using Autamted Script
 ```bash
 make clean  # This will remove the existing virtual environment
