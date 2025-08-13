@@ -24,7 +24,7 @@ db = firestore.client()
 #     return user
 
 
-@admin_router.post("/create-admin", tags=["Admin Management"])
+@admin_router.post("/create-admin", tags=["Admin"])
 async def create_admin(admin_data: ADMIN = Body(...)):
     try:
         admin_ref = db.collection("admin")
@@ -50,7 +50,7 @@ async def create_admin(admin_data: ADMIN = Body(...)):
 
 
 
-@admin_router.get("/get-admin", tags=["Admin Management"])
+@admin_router.get("/get-admin", tags=["Admin"])
 async def get_admin(email: str = Query(..., description="Admin email")):
     try:
         admin_ref = db.collection("admin")
@@ -71,7 +71,7 @@ async def get_admin(email: str = Query(..., description="Admin email")):
 
 
 
-@admin_router.get("/users", tags=["Admin Management"])
+@admin_router.get("/users", tags=["Admin"])
 # @admin_router.get("/admin/companies", dependencies=[Depends(admin_required)])
 async def list_users(
     userType: str = Query(...),
@@ -108,7 +108,7 @@ async def list_users(
         raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
 
 
-@admin_router.put("/update-status", tags=["Admin Management"])
+@admin_router.put("/update-status", tags=["Admin"])
 async def update_user_status(
     email: str = Query(...),
     status: str = Query(...),
@@ -130,7 +130,7 @@ async def update_user_status(
         raise HTTPException(status_code=500, detail=f"Error updating status: {str(e)}")
 
 
-@admin_router.get("/stats", tags=["Admin Management"])
+@admin_router.get("/stats", tags=["Admin"])
 async def get_platform_stats():
     try:
         stats = {}
@@ -148,7 +148,7 @@ class UserType(str, Enum):
     CANDIDATE = "candidate"
 
 
-@admin_router.get("/all-users", tags=["Admin Management"])
+@admin_router.get("/all-users", tags=["Admin"])
 async def get_all_users(user_type: Optional[UserType] = Query(None, description="Filter by userType")):
     """
     Retrieve all users. Optionally filter by userType: admin, employer, or candidate.
