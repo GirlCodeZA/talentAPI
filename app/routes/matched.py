@@ -7,6 +7,8 @@ from app.models.jobs import JobModel
 from app.models.matched import MatchedJob, MatchedJobStatus
 from collections import defaultdict, Counter
 import uuid
+from google.api_core.datetime_helpers import DatetimeWithNanoseconds
+
 
 
 
@@ -37,11 +39,8 @@ async def save_matched_job(job_data: MatchedJob = Body(...)):
 
 @router.get("/matched-job-id", tags=["Matched Jobs"])
 async def get_matched_id_by_job_id(job_id: str = Query(..., description="Job ID to look up")):
-    """
-    Get matched job info by job_id, including employer_id from the related job post.
-    """
     try:
-        # Step 1: Find matched job by job_id
+        # 1) Fetch matched_job
         matched_ref = db.collection("matched_jobs")
         matched_query = matched_ref.where("job_id", "==", job_id).limit(1).stream()
 
@@ -53,32 +52,42 @@ async def get_matched_id_by_job_id(job_id: str = Query(..., description="Job ID 
         if not matched_job:
             raise HTTPException(status_code=404, detail="No matched job found for the given job_id")
 
-        # Step 2: Get job info from jobs collection
+        # 2) Fetch job_data
         job_doc = db.collection("jobs").document(job_id).get()
         if not job_doc.exists:
             raise HTTPException(status_code=404, detail="Job document not found")
 
         job_data = job_doc.to_dict()
 
-        # Convert any datetime fields to ISO strings
-        def serialize_datetime(value):
-            return value.isoformat() if isinstance(value, datetime) else value
+        # 3) Recursively make everything JSON-safe
+        def make_json_safe(obj):
+            if isinstance(obj, (DatetimeWithNanoseconds, datetime)):
+                return obj.isoformat()
+            if isinstance(obj, dict):
+                return {k: make_json_safe(v) for k, v in obj.items()}
+            if isinstance(obj, (list, tuple, set)):
+                return [make_json_safe(v) for v in obj]
+            return obj
 
-        matched_job["matched_on"] = serialize_datetime(matched_job.get("matched_on"))
-        job_data["created_at"] = serialize_datetime(job_data.get("created_at"))
-        job_data["applicationCloseDate"] = serialize_datetime(job_data.get("applicationCloseDate"))
+        safe_matched_job = make_json_safe(matched_job)
+        safe_job_data   = make_json_safe(job_data)
 
-        return JSONResponse(content={
-            "candidate_id": matched_job.get("candidate_id"),
-            "fit_score": matched_job.get("fit_score"),
-            "job_accepted": matched_job.get("job_accepted"),
-            "job_title": matched_job.get("job_title"),
-            "skills_matched": matched_job.get("skills_matched", []),
-            "employer_id": job_data.get("employer_id"),
-            "matched_on": matched_job.get("matched_on"),
-            "job_data": job_data
-        }, status_code=200)
+        return JSONResponse(
+            content={
+                "candidate_id": safe_matched_job.get("candidate_id"),
+                "fit_score": safe_matched_job.get("fit_score"),
+                "job_accepted": safe_matched_job.get("job_accepted"),
+                "job_title": safe_matched_job.get("job_title"),
+                "skills_matched": safe_matched_job.get("skills_matched", []),
+                "employer_id": safe_job_data.get("employer_id"),
+                "matched_on": safe_matched_job.get("matched_on"),
+                "job_data": safe_job_data,
+            },
+            status_code=200,
+        )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
