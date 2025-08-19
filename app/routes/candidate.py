@@ -699,7 +699,7 @@ def match_candidates_to_job(job: JobModel, employer: EmployerProfile, candidate_
                 salary=f"R{job.salary_min} - R{job.salary_max}" if job.salary_min and job.salary_max else None,
                 matched_on=datetime.utcnow(),
                 status= ProfileStatus.PENDING.value,
-                job_accepted="no"  # Default value
+                job_accepted="no"
             )
             matched_candidates.append(matched_job)
 

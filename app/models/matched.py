@@ -8,7 +8,7 @@ class MatchedJobStatus(str, Enum):
     PENDING = "pending"
     VIEWED = "viewed"
     ACCEPTED = "accepted"
-    DECLINED = "Declined"
+    DECLINED = "declined"
     INTERVIEWED = "interviewed"
     OFFERED = "offered"
     # REJECTED = "rejected"

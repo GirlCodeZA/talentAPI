@@ -1,15 +1,13 @@
-from fastapi import APIRouter, Body, HTTPException, status, Query
+from fastapi import APIRouter, Body, Query, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from datetime import datetime
 from app.firebase import db
-from app.models.employer import EmployerProfile
-from app.models.jobs import JobModel
 from app.models.matched import MatchedJob, MatchedJobStatus
 from collections import defaultdict, Counter
 import uuid
 from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 
-
+from typing import Optional, Annotated
 
 
 router = APIRouter()
@@ -173,25 +171,95 @@ async def job_matches_summary():
 
 @router.patch("/update-job-status", tags=["Matched Jobs"])
 async def update_matched_job_status(
-        matched_id: str = Query(..., description="Matched job document ID"),
-        new_status: MatchedJobStatus = Query(..., description="New status for the matched job")
+        job_id: str = Query(..., description="Job ID (field inside matched_jobs)"),
+        new_status: MatchedJobStatus = Query(..., description="New status for the matched job"),
 ):
     try:
-        ref = db.collection("matched_jobs").document(matched_id)
-        doc = ref.get()
+        snaps = db.collection("matched_jobs").where("job_id", "==", job_id).limit(1).get()
+        if not snaps:
+            raise HTTPException(status_code=404, detail="Matched job not found for this job_id")
 
-        if not doc.exists:
-            raise HTTPException(status_code=404, detail="Matched job not found")
+        doc_ref = snaps[0].reference
+        value = new_status.value if hasattr(new_status, "value") else str(new_status)
+        doc_ref.update({"job_accepted": value})
 
-        ref.update({"job_accepted": new_status})
+        return {"message": f"Matched job status updated to {value}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update matched job status: {str(e)}")
 
-        return JSONResponse(
-            content={"message": f"Matched job status updated to {new_status}"},
-            status_code=status.HTTP_200_OK
-        )
 
+@router.get("/matched/by-candidate", tags=["Matched Jobs"])
+async def get_matched_jobs_by_candidate(
+        candidate_id: Annotated[str, Query(description="Candidate ID to look up")],
+        status_filter: Annotated[
+            Optional[MatchedJobStatus],
+            Query(description="Filter by matched job status (maps to job_accepted)")
+        ] = None,
+        include_job: Annotated[
+            bool,
+            Query(description="If true, include the job document as job_data")
+        ] = True,
+):
+    """
+    Returns all matched_jobs for a candidate_id.
+    - Optional: filter by status (compares against the job_accepted field)
+    - Optional: include the full job document as `job_data`
+    """
+
+    def make_json_safe(obj):
+        if isinstance(obj, (DatetimeWithNanoseconds, datetime)):
+            return obj.isoformat()
+        if isinstance(obj, dict):
+            return {k: make_json_safe(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple, set)):
+            return [make_json_safe(v) for v in obj]
+        return obj
+
+    try:
+        ref = db.collection("matched_jobs").where("candidate_id", "==", candidate_id)
+
+        if status_filter is not None:
+            # Already validated enum -> use its value
+            ref = ref.where("job_accepted", "==", status_filter.value)
+
+        # If you have an index, you can order:
+        # ref = ref.order_by("matched_on", direction=firestore.Query.DESCENDING)
+
+        docs = ref.stream()
+        results = []
+
+        for doc in docs:
+            matched = doc.to_dict() or {}
+            matched["matched_doc_id"] = doc.id
+
+            # Attach canonical job data and override denormalized fields
+            if include_job and matched.get("job_id"):
+                job_doc = db.collection("jobs").document(matched["job_id"]).get()
+                if job_doc.exists:
+                    job = job_doc.to_dict() or {}
+                    matched["job_data"] = job
+
+                    # Prefer canonical fields from job doc
+                    if job.get("title"):
+                        matched["job_title"] = job["title"]
+                    if job.get("location"):
+                        matched["location"] = job["location"]
+                    if job.get("description") and not matched.get("job_overview"):
+                        matched["job_overview"] = job["description"]
+
+            results.append(make_json_safe(matched))
+
+        if not results:
+            raise HTTPException(status_code=404, detail="No matches found for that candidate_id")
+
+        return JSONResponse(content=results, status_code=200)
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update matched job status: {str(e)}"
+            detail=f"Failed to fetch matches for candidate_id: {str(e)}"
         )

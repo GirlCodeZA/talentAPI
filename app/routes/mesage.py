@@ -1,3 +1,5 @@
+from typing import Optional
+from pydantic import BaseModel, EmailStr
 from app.models.models import Message
 from fastapi import APIRouter, HTTPException, Body, Query
 from firebase_admin import firestore
@@ -37,7 +39,7 @@ async def get_conversation(user1: str = Query(...), user2: str = Query(...)):
 
 
 @chat_router.get("/user-messages", tags=["Chat"])
-async def get_conversation(user1: str = Query(...)):
+async def get_user_messages(user1: str = Query(...)):
     """
     Fetch all user messages (sorted by timestamp).
     """
@@ -79,7 +81,6 @@ async def delete_messages(user1: str = Query(None), user2: str = Query(None), me
     """
     try:
         if message_id:
-            # Delete specific message by ID
             doc_ref = db.collection("messages").document(message_id)
             if doc_ref.get().exists:
                 doc_ref.delete()
@@ -88,7 +89,6 @@ async def delete_messages(user1: str = Query(None), user2: str = Query(None), me
                 raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
 
         elif user1 and user2:
-            # Delete all conversation messages
             query = db.collection("messages").where("sender", "in", [user1, user2]).where("receiver", "in", [user1, user2])
             deleted_count = 0
             for doc in query.stream():
@@ -99,3 +99,58 @@ async def delete_messages(user1: str = Query(None), user2: str = Query(None), me
             raise HTTPException(status_code=400, detail="Provide either message_id or both user1 and user2")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete messages: {e}")
+
+
+class MarkReadBody(BaseModel):
+    receiver: EmailStr
+    sender: Optional[EmailStr] = None  # if provided, only mark from this sender
+
+@chat_router.post("/mark-read", tags=["Chat"])
+async def mark_received_as_read(body: MarkReadBody):
+    """
+    Mark messages as read for a receiver.
+    If `sender` is provided, only marks messages from that sender.
+    """
+    try:
+        q = db.collection("messages").where("receiver", "==", str(body.receiver))
+        if body.sender:
+            q = q.where("sender", "==", str(body.sender))
+        q = q.where("isRead", "==", False)
+
+        docs = list(q.stream())
+
+        if not docs:
+            return {"updated": 0}
+
+        updated = 0
+        batch = db.batch()
+        for i, d in enumerate(docs, start=1):
+            batch.update(db.collection("messages").document(d.id), {"isRead": True})
+            if i % 450 == 0:
+                batch.commit()
+                updated += 450
+                batch = db.batch()
+        batch.commit()
+        updated += len(docs) % 450
+
+        return {"updated": len(docs)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to mark messages read: {e}")
+
+
+@chat_router.get("/unread-count", tags=["Chat"])
+async def unread_count(receiver: EmailStr, sender: Optional[EmailStr] = None):
+    """
+    Return the number of unread messages for a receiver.
+    If `sender` is provided, only count from that sender.
+    """
+    try:
+        q = db.collection("messages").where("receiver", "==", str(receiver))
+        if sender:
+            q = q.where("sender", "==", str(sender))
+        q = q.where("isRead", "==", False)
+
+        count = sum(1 for _ in q.stream())
+        return {"receiver": receiver, "sender": sender, "unread": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to count unread: {e}")
