@@ -235,3 +235,51 @@ async def get_employer_uid(email: str = Query(...)):
         return JSONResponse(content={"uid": uid, "companyName" : company_name})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch UID: {str(e)}")
+
+
+@employer_router.get("/get-employer-by-id", tags=["Employer"])
+async def get_employer_by_id(
+        employer_id: str = Query(..., description="Firestore document ID or employer UID")
+):
+    """
+    Fetch employer details using an employer identifier.
+    - First tries Firestore document id == employer_id
+    - If not found, falls back to where uid == employer_id
+    """
+    try:
+        ref = db.collection("employer")
+
+        # 1) Try by Firestore document id
+        doc_snap = ref.document(employer_id).get()
+        if doc_snap.exists:
+            data = doc_snap.to_dict()
+            doc_id = doc_snap.id
+        else:
+            # 2) Fallback: try by 'uid' field
+            query = ref.where("uid", "==", employer_id).limit(1).stream()
+            docs = list(query)
+
+            if not docs:
+                raise HTTPException(status_code=404, detail="Employer not found")
+
+            data = docs[0].to_dict()
+            doc_id = docs[0].id
+
+        # Attach signed URLs if present
+        logo_key = data.get("logo")
+        if logo_key:
+            data["logoUrl"] = generate_signed_url(logo_key)
+
+        profile_key = data.get("profilePicture")
+        if profile_key:
+            data["profilePictureSignedUrl"] = generate_signed_url(profile_key)
+
+        # Always include the Firestore document id for convenience
+        data["id"] = doc_id
+
+        return JSONResponse(content=data)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving employer details: {str(e)}")
