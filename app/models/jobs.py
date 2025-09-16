@@ -15,6 +15,7 @@ class Status(str, Enum):
     closed = "Closed"
     draft = "Draft"
     pending = "Pending"
+    deleted = "Deleted"
 
 
 class JobModel(BaseModel):
@@ -35,6 +36,8 @@ class JobModel(BaseModel):
     application_close_date: Optional[datetime] = Field(None, alias='applicationCloseDate')
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
 
     class Config:
         allow_population_by_field_name = False

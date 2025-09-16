@@ -136,6 +136,61 @@ async def get_candidate_by_id(candidate_id: str = Query(...)):
         )
 
 
+def _build_candidate_response(doc) -> dict:
+    """Normalize candidate doc with progress steps & signed URL."""
+    candidate = doc.to_dict() or {}
+
+    # Progress steps: use defaults and overlay saved values; keep original order
+    default_steps = ProgressModel.default_steps()
+    progress_steps_data = candidate.get("progressSteps", {}) or {}
+
+    sorted_progress_steps = {
+        step: ProgressStep(**progress_steps_data.get(step, default_steps[step])).dict()
+        for step in default_steps
+    }
+
+    # Signed URL for profile picture (if present)
+    file_key = candidate.get("profilePicture")
+    if file_key:
+        candidate["profilePictureSignedUrl"] = generate_signed_url(file_key)
+
+    return {
+        "id": doc.id,
+        **candidate,
+        "progressSteps": sorted_progress_steps,
+    }
+
+@candidate_router.get("/candidate-by-uuid", tags=["Candidate"])
+async def get_candidate_by_uuid(candidate_uuid: str = Query(..., min_length=1)):
+    """
+    Fetch a candidate using the `candidate_uuid` field.
+    Returns the first match; 404 if none.
+    """
+    try:
+        # Query by field; adjust field name if your schema differs
+        query = (
+            db.collection("candidate")
+            .where("candidate_uuid", "==", candidate_uuid)
+            .limit(1)
+        )
+        docs = query.get()
+
+        if not docs:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        doc = docs[0]
+        response = _build_candidate_response(doc)
+        return JSONResponse(content=response, status_code=200)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching candidate by UUID: {str(e)}"
+        )
+
+
 @candidate_router.put("/status", tags=["Candidate"])
 async def update_candidate_status(data: StatusUpdateSchema):
     try:

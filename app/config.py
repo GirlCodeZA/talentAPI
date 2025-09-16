@@ -9,13 +9,13 @@ Configuration file for Firebase settings.
 """
 
 firebase_config = {
-    "apiKey": "AIzaSyDzQy9RklkGFuoVCnJnA51P5wbHxJZpGKs",
-    "authDomain": "talent-dd7dd.firebaseapp.com",
-    "projectId": "talent-firestore-access",
-    "storageBucket": "talent-dd7dd.appspot.com",
-    "messagingSenderId": "565928155897",
-    "appId": "1:565928155897:web:74e66194deb6f390876028",
-    "measurementId": "G-M000JMGV0W",
+    "apiKey": "AIzaSyBfdQmnLpJd_hGdiU1mQYoGW-LMjom_U20",
+    "authDomain": "talent-4e063.firebaseapp.com",
+    "projectId": "talent-4e063",
+    "storageBucket": "talent-4e063.appspot.com",
+    "messagingSenderId": "111415801370",
+    "appId": "1:111415801370:web:f86c07eef4b0a9f00e03a3",
+    "measurementId": "G-WGQHXRBEF3",
     "databaseURL": "",
     "signInWithPasswordBaseURL": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
 }

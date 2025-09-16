@@ -15,12 +15,11 @@ router = APIRouter()
 @router.post("/matched", tags=["Matched Jobs"])
 async def save_matched_job(job_data: MatchedJob = Body(...)):
     try:
-        matched_uuid = uuid.uuid4()  # Generate UUID
+        matched_uuid = uuid.uuid4()
         job_dict = job_data.dict()
-        job_dict["matched_id"] = str(matched_uuid)  # Ensure it's stored as a string
-        job_dict["matched_on"] = datetime.utcnow().isoformat()  # Ensure timestamp
+        job_dict["matched_id"] = str(matched_uuid)
+        job_dict["matched_on"] = datetime.utcnow().isoformat()
 
-        # Save UUID as document ID too (optional, but makes querying easier)
         doc_ref = db.collection("matched_jobs").document(str(matched_uuid))
         doc_ref.set(job_dict)
 

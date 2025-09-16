@@ -1,9 +1,6 @@
 """
 Main entry point for the Talent FastAPI application.
 Sets up the FastAPI instance, configures CORS, and registers routes.
-
-NOTE: In the frontend, call the API via http://localhost:8000 (or your LAN IP),
-NOT http://0.0.0.0:8000.
 """
 
 from fastapi import FastAPI
@@ -17,7 +14,7 @@ from app.routes.employer import employer_router
 from app.routes.mail import mail_router
 from app.routes.jobs import router as job_router
 from app.routes.matched import router as matched_job_router
-from app.routes.mesage import chat_router  # keep module name as in your project
+from app.routes.mesage import chat_router
 from app.routes.careerCoach import career_coach_router
 
 app = FastAPI(
@@ -27,12 +24,12 @@ app = FastAPI(
 )
 
 # --------- CORS ---------
-# Explicit origins you know you’ll use (deployed + common local dev)
 ALLOWED_ORIGINS = [
-    "https://talent-dd7dd.web.app",  # deployed app
-    "http://localhost:8080",         # Vite/Webpack dev
+    "https://api.talent.girlcode.co.za",
+    "https://talent-4e063.web.app/"
+    "http://localhost:8080",
     "http://127.0.0.1:8080",
-    "http://localhost:3000",         # CRA/Next dev (if you use it)
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
 
@@ -58,7 +55,6 @@ app.include_router(mail_router, prefix="/mail", tags=["Mail"])
 app.include_router(chat_router, prefix="/chat", tags=["Chat"])
 app.include_router(career_coach_router, prefix="/Coach", tags=["Career Coach"])
 
-# Optional: quick health check
 @app.get("/health", tags=["Health"])
 def health():
     return {"status": "ok"}

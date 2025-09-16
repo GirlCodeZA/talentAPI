@@ -3,8 +3,9 @@ from fastapi import APIRouter, Body, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime, date
 from app.firebase import db
-from app.models.jobs import JobModel, JobStatusUpdateSchema
+from app.models.jobs import JobModel, JobStatusUpdateSchema, Status
 from typing import Optional
+from google.cloud import firestore
 
 from app.models.shared import StatusUpdateSchema
 from app.utils.status_helpers import update_profile_status_by_email
@@ -188,6 +189,7 @@ async def get_jobs_by_employer(employer_id: str):
             detail=f"Failed to retrieve jobs for employer: {str(e)}"
         )
 
+
 @router.put("/job/update-status", tags=["Job"])
 async def update_job_status(data: JobStatusUpdateSchema):
     try:
@@ -197,10 +199,28 @@ async def update_job_status(data: JobStatusUpdateSchema):
         if not doc.exists:
             raise HTTPException(status_code=404, detail="Job not found")
 
-        ref.update({"status": data.status.value})
-        return {"message": f"Job status updated to '{data.status.value}' for ID {data.job_id}"}
+        status_val = str(data.status.value)
+        updates = {
+            "status": data.status.value,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
 
+        if status_val == Status.deleted:
+            updates["deleted_at"] = firestore.SERVER_TIMESTAMP
+            updates["closed_at"] = firestore.DELETE_FIELD
+        elif status_val == Status.closed:
+            updates["closed_at"] = firestore.SERVER_TIMESTAMP
+            updates["deleted_at"] = firestore.DELETE_FIELD
+        else:
+            updates["deleted_at"] = firestore.DELETE_FIELD
+            updates["closed_at"]  = firestore.DELETE_FIELD
+
+        ref.update(updates)
+        return {"message": f"Job status updated to '{status_val}' for ID {data.job_id}"}
+
+    # Let explicit HTTP errors bubble up
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating job status: {str(e)}")
+

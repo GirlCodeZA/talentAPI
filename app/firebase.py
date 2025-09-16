@@ -14,8 +14,8 @@ def init_firebase():
     try:
         cred = credentials.Certificate(os.getenv("FIREBASE_CREDENTIALS", "serviceAccountKey.json"))
         initialize_app(cred, {
-            "storageBucket": os.getenv("FIREBASE_BUCKET", "talent-firestore-access.appspot.com"),
-            "projectId": "talent-firestore-access"
+            "storageBucket": os.getenv("FIREBASE_BUCKET", "talent-4e063.appspot.com"),
+            "projectId": "talent-4e063"
         })
     except ValueError:
         # Firebase Admin is already initialized
