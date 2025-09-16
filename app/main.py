@@ -28,6 +28,7 @@ ALLOWED_ORIGINS = [
     "https://api.talent.girlcode.co.za",
     "https://talent-4e063.web.app/"
     "http://localhost:8080",
+    "https://talent.girlcode.co.za"
     "http://127.0.0.1:8080",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
