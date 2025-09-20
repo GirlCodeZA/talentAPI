@@ -25,22 +25,21 @@ app = FastAPI(
 
 # --------- CORS ---------
 ALLOWED_ORIGINS = [
-    "https://api.talent.girlcode.co.za",
-    "https://talent-4e063.web.app/"
     "http://localhost:8080",
-    "https://talent.girlcode.co.za"
     "http://127.0.0.1:8080",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://talent.girlcode.co.za",
+    "https://talent-4e063.web.app",
 ]
+
 
 # Allow any localhost / 127.0.0.1 / LAN IP with any port in development.
 # (Requests must still be http/https and match the regex.)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|\d{1,3}(?:\.\d{1,3}){3})(:\d+)?$",
-    allow_credentials=True,   # set True if you use cookies/Authorization headers
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
